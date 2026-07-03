@@ -1,308 +1,283 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
-import { GeoJsonFeature } from "../types/weather.ts";
+import {
+  formatMetricValue,
+  getMapLibreColorExpression,
+  getMetricColor,
+  getPm25MetricValue,
+  getWeatherMetricValue,
+  metricConfigs,
+} from "../lib/colorScale.ts";
+import type { GeoJsonFeature, ObservationMetric, Pm25Observation } from "../types/weather.ts";
 
 interface MapLibreMapProps {
   features: GeoJsonFeature[];
+  pm25Observations: Pm25Observation[];
   selectedCounty: string;
-  minTemp: number;
-  showLabels: boolean;
-  activeWeatherLayer: string;
+  activeMetric: ObservationMetric;
+  metricMin: number;
+}
+
+interface ObservationState {
+  features: GeoJsonFeature[];
+  pm25Observations: Pm25Observation[];
+  selectedCounty: string;
+  activeMetric: ObservationMetric;
+  metricMin: number;
+}
+
+const osmRasterStyle: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    "osm-raster": {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm-raster",
+      type: "raster",
+      source: "osm-raster",
+    },
+  ],
+};
+
+function buildObservationFeatures(state: ObservationState): GeoJSON.FeatureCollection {
+  const config = metricConfigs[state.activeMetric];
+
+  if (config.source === "airQuality") {
+    const features = state.pm25Observations
+      .filter((obs) => obs.lat !== null && obs.lon !== null)
+      .filter((obs) => !state.selectedCounty || obs.county === state.selectedCounty)
+      .map((obs) => {
+        const value = getPm25MetricValue(obs);
+        return { obs, value };
+      })
+      .filter(({ value }) => value === null || value >= state.metricMin)
+      .map(({ obs, value }) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [obs.lon as number, obs.lat as number],
+        },
+        properties: {
+          sourceType: "airQuality",
+          station_name: obs.station_name || "-",
+          county: obs.county || "",
+          town: "",
+          value,
+          displayValue: formatMetricValue(state.activeMetric, value),
+          color: getMetricColor(state.activeMetric, value),
+          metricLabel: config.label,
+          metricUnit: config.unit,
+          observed_at: obs.observed_at,
+          fetched_at: obs.fetched_at,
+          pm25: obs.pm25,
+          pm25_avg: obs.pm25_avg,
+        },
+      }));
+
+    return { type: "FeatureCollection", features };
+  }
+
+  const features = state.features
+    .filter((feature) => !state.selectedCounty || feature.properties.county === state.selectedCounty)
+    .map((feature) => {
+      const value = getWeatherMetricValue(feature.properties, state.activeMetric);
+      return { feature, value };
+    })
+    .filter(({ value }) => value === null || value >= state.metricMin)
+    .map(({ feature, value }) => ({
+      type: "Feature" as const,
+      geometry: feature.geometry,
+      properties: {
+        ...feature.properties,
+        sourceType: "weather",
+        value,
+        displayValue: formatMetricValue(state.activeMetric, value),
+        color: getMetricColor(state.activeMetric, value),
+        metricLabel: config.label,
+        metricUnit: config.unit,
+      },
+    }));
+
+  return { type: "FeatureCollection", features };
+}
+
+function popupHtml(props: Record<string, any>): string {
+  const sourceLabel = props.sourceType === "airQuality" ? "環境部空品觀測" : "中央氣象署即時觀測";
+  const observedAt = props.observed_at || props.fetched_at;
+  const observedText = observedAt ? new Date(observedAt).toLocaleString() : "-";
+
+  if (props.sourceType === "airQuality") {
+    return `
+      <div class="popup-container">
+        <div class="popup-header">
+          <div class="popup-station-name">${props.station_name || "-"}</div>
+          <div class="popup-location-sub">${props.county || ""} · ${sourceLabel}</div>
+        </div>
+        <div class="popup-metric-large">${props.displayValue || "-"}</div>
+        <div class="popup-grid">
+          <span class="popup-label">PM2.5</span>
+          <span class="popup-value">${props.pm25 ?? "-"}</span>
+          <span class="popup-label">PM2.5 平均</span>
+          <span class="popup-value">${props.pm25_avg ?? "-"}</span>
+        </div>
+        <div class="popup-time">觀測時間: ${observedText}</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="popup-container">
+      <div class="popup-header">
+        <div class="popup-station-name">${props.station_name || "-"}</div>
+        <div class="popup-location-sub">${props.county || ""} ${props.town || ""} · ${sourceLabel}</div>
+      </div>
+      <div class="popup-metric-large">${props.metricLabel || "觀測"} ${props.displayValue || "-"}</div>
+      <div class="popup-grid">
+        <span class="popup-label">氣溫</span>
+        <span class="popup-value">${props.temperature ?? "-"} °C</span>
+        <span class="popup-label">降水量</span>
+        <span class="popup-value">${props.rainfall ?? "-"} mm</span>
+        <span class="popup-label">濕度</span>
+        <span class="popup-value">${props.humidity ?? "-"}%</span>
+        <span class="popup-label">風速</span>
+        <span class="popup-value">${props.wind_speed ?? "-"} m/s</span>
+        <span class="popup-label">風向</span>
+        <span class="popup-value">${props.wind_direction ?? "-"}</span>
+      </div>
+      <div class="popup-time">觀測時間: ${observedText}</div>
+    </div>
+  `;
 }
 
 export const MapLibreMap: React.FC<MapLibreMapProps> = ({
   features,
+  pm25Observations,
   selectedCounty,
-  minTemp,
-  showLabels,
-  activeWeatherLayer,
+  activeMetric,
+  metricMin,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const stateRef = useRef<ObservationState>({
+    features,
+    pm25Observations,
+    selectedCounty,
+    activeMetric,
+    metricMin,
+  });
 
-  // RainViewer paths (API provides hash paths)
-  const [radarPath, setRadarPath] = useState<string | null>(null);
-  const [satellitePath, setSatellitePath] = useState<string | null>(null);
+  stateRef.current = {
+    features,
+    pm25Observations,
+    selectedCounty,
+    activeMetric,
+    metricMin,
+  };
 
-  // Load RainViewer public map metadata (non-API-key endpoint)
-  useEffect(() => {
-    const fetchTimestamps = async () => {
-      try {
-        const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-        if (res.ok) {
-          const data = await res.json();
-          
-          // Get latest radar path
-          if (data.radar && data.radar.past && data.radar.past.length > 0) {
-            setRadarPath(data.radar.past[data.radar.past.length - 1].path);
-          }
-          
-          // Get latest satellite path
-          if (data.satellite && data.satellite.infrared && data.satellite.infrared.length > 0) {
-            setSatellitePath(data.satellite.infrared[data.satellite.infrared.length - 1].path);
-          } else {
-            // Fallback: RainViewer sometimes has empty infrared list. Try visible or standard path
-            if (data.satellite && data.satellite.visible && data.satellite.visible.length > 0) {
-              setSatellitePath(data.satellite.visible[data.satellite.visible.length - 1].path);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch RainViewer maps metadata", err);
-      }
-    };
-    fetchTimestamps();
-  }, []);
+  const updateObservationData = () => {
+    const map = mapRef.current;
+    const source = map?.getSource("observation-source") as maplibregl.GeoJSONSource | undefined;
+    if (!map || !source) return;
 
-  // Initialize Map
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
+    const state = stateRef.current;
+    source.setData(buildObservationFeatures(state));
 
-    // Use CartoDB Positron light vector basemap
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-      center: [121.0, 23.7],
-      zoom: 7.2,
-    });
+    if (map.getLayer("observation-circles")) {
+      map.setPaintProperty(
+        "observation-circles",
+        "circle-color",
+        getMapLibreColorExpression(state.activeMetric) as any
+      );
+      map.setPaintProperty(
+        "observation-circles",
+        "circle-radius",
+        7
+      );
+    }
+  };
 
-    mapRef.current = map;
+  const ensureObservationLayers = () => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
 
-    // Load CWA layers when style loads
-    map.on("load", () => {
-      // Add CWA GeoJSON source
-      map.addSource("cwa-source", {
+    if (!map.getSource("observation-source")) {
+      map.addSource("observation-source", {
         type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: [],
-        },
+        data: { type: "FeatureCollection", features: [] },
       });
+    }
 
-      // Add CWA circles layer (acts as badge background or simple dot)
+    if (!map.getLayer("observation-circles")) {
       map.addLayer({
-        id: "cwa-circles",
+        id: "observation-circles",
         type: "circle",
-        source: "cwa-source",
+        source: "observation-source",
         paint: {
-          "circle-radius": showLabels ? 13 : 6,
-          "circle-color": [
-            "step",
-            ["get", "temperature"],
-            "#2b6cb0",
-            10, "#3182ce",
-            15, "#38a169",
-            20, "#ecc94b",
-            25, "#ed8936",
-            30, "#e53e3e",
-            35, "#9b2c2c",
-          ],
+          "circle-radius": 7,
+          "circle-color": getMapLibreColorExpression(stateRef.current.activeMetric) as any,
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
           "circle-opacity": 0.9,
         },
       });
+    }
 
-      // Add CWA text labels layer - centered inside the circle badges
-      map.addLayer({
-        id: "cwa-labels",
-        type: "symbol",
-        source: "cwa-source",
-        layout: {
-          "text-field": ["concat", ["to-string", ["round", ["get", "temperature"]]], "°"],
-          "text-size": 9.5,
-          "text-offset": [0, 0],
-          "text-anchor": "center",
-          "text-allow-overlap": true,
-          "text-ignore-placement": true,
-        },
-        paint: {
-          "text-color": [
-            "step",
-            ["get", "temperature"],
-            "#ffffff", // < 10
-            10, "#ffffff", // 10-15
-            15, "#ffffff", // 15-20
-            20, "#0f172a", // 20-25 (Yellow background gets dark text!)
-            25, "#ffffff", // 25-30
-            30, "#ffffff", // 30-35
-            35, "#ffffff", // >= 35
-          ],
-        },
-      });
+    updateObservationData();
+  };
 
-      // Show/hide labels and set circle sizes based on initial toggle state
-      map.setLayoutProperty("cwa-labels", "visibility", showLabels ? "visible" : "none");
-      map.setPaintProperty("cwa-circles", "circle-radius", showLabels ? 13 : 6);
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
 
-      // Popup handler on click
-      map.on("click", "cwa-circles", (e) => {
-        if (!e.features || e.features.length === 0) return;
-        const feature = e.features[0];
-        const coordinates = (feature.geometry as any).coordinates.slice();
-        const props = feature.properties;
-
-        // Extract values
-        const name = props.station_name;
-        const county = props.county || "";
-        const town = props.town || "";
-        const temp = props.temperature !== undefined && props.temperature !== "null" ? Number(props.temperature) : null;
-        const pop = props.pop !== undefined && props.pop !== "null" ? Number(props.pop) : null;
-        const humidity = props.humidity !== undefined && props.humidity !== "null" ? Number(props.humidity) : null;
-        const windSpeed = props.wind_speed !== undefined && props.wind_speed !== "null" ? Number(props.wind_speed) : null;
-        const windDirection = props.wind_direction || "-";
-        const fetchedAt = props.fetched_at;
-
-        const popupHtml = `
-          <div class="popup-container">
-            <div class="popup-header">
-              <div class="popup-station-name">${name}</div>
-              <div class="popup-location-sub">${county} ${town}</div>
-            </div>
-            <div class="popup-temp-large">${temp !== null ? `${temp}°C` : "無資料"}</div>
-            <div class="popup-grid">
-              <span class="popup-label">降雨機率:</span>
-              <span class="popup-value">${pop !== null ? `${pop}%` : "-"}</span>
-              <span class="popup-label">相對濕度:</span>
-              <span class="popup-value">${humidity !== null ? `${humidity}%` : "-"}</span>
-              <span class="popup-label">風速:</span>
-              <span class="popup-value">${windSpeed !== null ? `${windSpeed} m/s` : "-"}</span>
-              <span class="popup-label">風向:</span>
-              <span class="popup-value">${windDirection}</span>
-            </div>
-            <div class="popup-time">氣象局觀測時間: ${new Date(fetchedAt).toLocaleTimeString()}</div>
-          </div>
-        `;
-
-        new maplibregl.Popup({ className: "custom-mapbox-popup" })
-          .setLngLat(coordinates)
-          .setHTML(popupHtml)
-          .addTo(map);
-      });
-
-      // Change cursor style on hover
-      map.on("mouseenter", "cwa-circles", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "cwa-circles", () => {
-        map.getCanvas().style.cursor = "";
-      });
-
-      // Trigger initial layers load
-      updateCwaData();
-      updateWeatherLayer();
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: osmRasterStyle,
+      center: [121.0, 23.7],
+      zoom: 7.2,
+      maxZoom: 12,
     });
 
-    // Cleanup
+    mapRef.current = map;
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-left");
+
+    map.on("load", ensureObservationLayers);
+    map.on("style.load", ensureObservationLayers);
+
+    map.on("click", "observation-circles", (event) => {
+      if (!event.features || event.features.length === 0) return;
+      const feature = event.features[0];
+      const geometry = feature.geometry as GeoJSON.Point;
+      const coordinates = geometry.coordinates.slice() as [number, number];
+
+      new maplibregl.Popup({ className: "custom-mapbox-popup" })
+        .setLngLat(coordinates)
+        .setHTML(popupHtml(feature.properties || {}))
+        .addTo(map);
+    });
+
+    map.on("mouseenter", "observation-circles", () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", "observation-circles", () => {
+      map.getCanvas().style.cursor = "";
+    });
+
     return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      map.remove();
+      mapRef.current = null;
     };
   }, []);
 
-  // Update CWA data source when filters/features change
   useEffect(() => {
-    updateCwaData();
-  }, [features, selectedCounty, minTemp]);
-
-  // Update CWA labels visibility and circle sizes
-  useEffect(() => {
-    const map = mapRef.current;
-    if (map) {
-      if (map.getLayer("cwa-labels")) {
-        map.setLayoutProperty("cwa-labels", "visibility", showLabels ? "visible" : "none");
-      }
-      if (map.getLayer("cwa-circles")) {
-        map.setPaintProperty("cwa-circles", "circle-radius", showLabels ? 13 : 6);
-      }
-    }
-  }, [showLabels]);
-
-  // Update weather base overlay layer when activeWeatherLayer or paths change
-  useEffect(() => {
-    updateWeatherLayer();
-  }, [activeWeatherLayer, radarPath, satellitePath]);
-
-  const updateCwaData = () => {
-    const map = mapRef.current;
-    if (!map) return;
-    const source = map.getSource("cwa-source") as maplibregl.GeoJSONSource;
-    if (!source) {
-      console.warn("CWA source 'cwa-source' not found on map yet.");
-      return;
-    }
-
-    // Filter features
-    const filteredFeatures = features.filter((feat) => {
-      const props = feat.properties;
-
-      // Filter by county
-      if (selectedCounty && props.county !== selectedCounty) {
-        return false;
-      }
-
-      // Filter by min temperature
-      if (props.temperature !== null && props.temperature < minTemp) {
-        return false;
-      }
-
-      return true;
-    });
-
-    console.log("Setting CWA data features count:", filteredFeatures.length);
-
-    source.setData({
-      type: "FeatureCollection",
-      features: filteredFeatures,
-    });
-  };
-
-  const updateWeatherLayer = () => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-
-    // Remove existing weather source & layer
-    if (map.getLayer("weather-layer")) {
-      map.removeLayer("weather-layer");
-    }
-    if (map.getSource("weather-source")) {
-      map.removeSource("weather-source");
-    }
-
-    let tileUrl = "";
-
-    // Build URL using RainViewer hash-based path structure
-    if (activeWeatherLayer === "radar" && radarPath) {
-      tileUrl = `https://tilecache.rainviewer.com${radarPath}/256/{z}/{x}/{y}/2/1_1.png`;
-    } else if (activeWeatherLayer === "satellite" && satellitePath) {
-      tileUrl = `https://tilecache.rainviewer.com${satellitePath}/256/{z}/{x}/{y}/2/1_1.png`;
-    }
-
-    if (tileUrl) {
-      map.addSource("weather-source", {
-        type: "raster",
-        tiles: [tileUrl],
-        tileSize: 256,
-        maxzoom: 8, // Set maxzoom to 8 for correct tile stretching on zoom
-      });
-
-      // Insert weather layer BEFORE CWA circle layer so stations draw on top of the radar!
-      const beforeId = map.getLayer("cwa-circles") ? "cwa-circles" : undefined;
-      map.addLayer(
-        {
-          id: "weather-layer",
-          type: "raster",
-          source: "weather-source",
-          paint: {
-            "raster-opacity": 0.5,
-          },
-        },
-        beforeId
-      );
-    }
-  };
+    ensureObservationLayers();
+    updateObservationData();
+  }, [features, pm25Observations, selectedCounty, activeMetric, metricMin]);
 
   return (
     <div className="map-pane">

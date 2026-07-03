@@ -17,11 +17,16 @@ class CwaClient:
         self.api_key = api_key
         self.dataset_id = dataset_id
 
-    def fetch(self) -> tuple[dict[str, Any], int]:
+    def fetch(self, extra_params: dict[str, Any] | None = None) -> tuple[dict[str, Any], int]:
         url = CWA_REST_URL.format(dataset_id=self.dataset_id)
         params = {"Authorization": self.api_key, "format": "JSON"}
+        if extra_params:
+            params.update(extra_params)
         start = time.perf_counter()
-        response = requests.get(url, params=params, timeout=30, verify=False)
+        try:
+            response = requests.get(url, params=params, timeout=30, verify=False)
+        except requests.RequestException as exc:
+            raise RuntimeError(f"CWA request failed before response: {exc.__class__.__name__}") from exc
         elapsed_ms = int((time.perf_counter() - start) * 1000)
 
         if response.status_code == 401:

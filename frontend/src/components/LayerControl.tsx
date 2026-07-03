@@ -1,153 +1,103 @@
 import React from "react";
+import { metricConfigs, metricOrder } from "../lib/colorScale.ts";
+import type { ObservationMetric } from "../types/weather.ts";
 
 interface LayerControlProps {
   counties: string[];
   selectedCounty: string;
   onCountyChange: (county: string) => void;
-  
-  minTemp: number;
-  onMinTempChange: (temp: number) => void;
-  
-  showLabels: boolean;
-  onShowLabelsToggle: () => void;
-  
-  activeWeatherLayer: string;
-  onWeatherLayerChange: (layer: string) => void;
-  
-  lastUpdate: string | null;
-  recordCount: number | null;
-  onRefresh: () => void;
-  refreshing: boolean;
+
+  activeMetric: ObservationMetric;
+  onMetricChange: (metric: ObservationMetric) => void;
+  metricMin: number;
+  onMetricMinChange: (value: number) => void;
+
+  weatherCount: number | null;
+  pm25Count: number | null;
 }
 
 export const LayerControl: React.FC<LayerControlProps> = ({
   counties,
   selectedCounty,
   onCountyChange,
-  minTemp,
-  onMinTempChange,
-  showLabels,
-  onShowLabelsToggle,
-  activeWeatherLayer,
-  onWeatherLayerChange,
-  lastUpdate,
-  recordCount,
-  onRefresh,
-  refreshing,
+  activeMetric,
+  onMetricChange,
+  metricMin,
+  onMetricMinChange,
+  weatherCount,
+  pm25Count,
 }) => {
-  const weatherLayers = [
-    { id: "none", name: "純地圖底圖", icon: "🗺️" },
-    { id: "radar", name: "降雨雷達圖", icon: "🌧️" },
-    { id: "satellite", name: "紅外線衛星雲圖", icon: "📡" },
-  ];
+  const activeConfig = metricConfigs[activeMetric];
 
   return (
-    <aside className="sidebar">
-      {/* Title */}
-      <div className="sidebar-section">
-        <h2 className="sidebar-section-title">台灣氣象觀測控制面板</h2>
-      </div>
-
-      {/* County Filter */}
-      <div className="sidebar-section">
-        <label className="sidebar-section-title" htmlFor="county-select">縣市篩選</label>
+    <section className="control-dock" aria-label="地圖控制">
+      <div className="control-group control-group-wide">
+        <label className="control-label" htmlFor="county-select">縣市</label>
         <select
           id="county-select"
           className="form-select"
           value={selectedCounty}
           onChange={(e) => onCountyChange(e.target.value)}
         >
-          <option value="">全台灣各縣市</option>
-          {counties.map((c) => (
-            <option key={c} value={c}>
-              {c}
+          <option value="">全台灣</option>
+          {counties.map((county) => (
+            <option key={county} value={county}>
+              {county}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Temperature Filter */}
-      <div className="sidebar-section">
-        <div className="sidebar-section-title">氣溫篩選</div>
-        <div className="range-slider-container">
-          <div className="slider-labels">
-            <span>顯示氣溫 ≥ {minTemp}°C</span>
-            <span>40°C</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="40"
-            value={minTemp}
-            onChange={(e) => onMinTempChange(Number(e.target.value))}
-            className="range-slider"
-          />
+      <div className="control-group control-group-metric">
+        <div className="control-label">觀測指標</div>
+        <div className="metric-tabs" role="tablist" aria-label="觀測指標">
+          {metricOrder.map((metric) => {
+            const config = metricConfigs[metric];
+            return (
+              <button
+                key={metric}
+                type="button"
+                className={`metric-tab ${activeMetric === metric ? "active" : ""}`}
+                onClick={() => onMetricChange(metric)}
+                role="tab"
+                aria-selected={activeMetric === metric}
+              >
+                <span className="metric-tab-code">{config.shortLabel}</span>
+                <span>{config.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Toggles */}
-      <div className="sidebar-section">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={showLabels}
-            onChange={onShowLabelsToggle}
-            className="checkbox-input"
-          />
-          顯示測站溫度標籤
-        </label>
+      <div className="control-group control-group-slider">
+        <div className="slider-heading">
+          <label className="control-label" htmlFor="metric-min">
+            {activeConfig.label}篩選
+          </label>
+          <span className="slider-value">
+            {`>= ${metricMin}${activeConfig.unit}`}
+          </span>
+        </div>
+        <input
+          id="metric-min"
+          type="range"
+          min={activeConfig.min}
+          max={activeConfig.max}
+          step={activeConfig.step}
+          value={metricMin}
+          onChange={(e) => onMetricMinChange(Number(e.target.value))}
+          className="range-slider"
+        />
       </div>
 
-      {/* Background Layers */}
-      <div className="sidebar-section">
-        <div className="sidebar-section-title">天氣圖層疊加</div>
-        <div className="layer-grid">
-          {weatherLayers.map((layer) => (
-            <button
-              key={layer.id}
-              className={`layer-btn ${activeWeatherLayer === layer.id ? "active" : ""}`}
-              onClick={() => onWeatherLayerChange(layer.id)}
-            >
-              <span className="layer-icon">{layer.icon}</span>
-              <span>{layer.name}</span>
-            </button>
-          ))}
+      <div className="control-group control-group-status">
+        <div className="control-label">資料筆數</div>
+        <div className="data-status">
+          <span>天氣 {weatherCount ?? "-"}</span>
+          <span>PM2.5 {pm25Count ?? "-"}</span>
         </div>
       </div>
-
-      {/* Data Stats & Refresh */}
-      <div className="sidebar-section" style={{ marginTop: "auto", borderTop: "1px solid var(--border-color)", paddingTop: "1.5rem" }}>
-        <div className="sidebar-section-title">觀測資料資訊</div>
-        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "0.8rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-          <div><strong>測站總數:</strong> {recordCount ?? "-"}</div>
-          {lastUpdate && (
-            <div>
-              <strong>最後更新時間:</strong> {new Date(lastUpdate).toLocaleString()}
-            </div>
-          )}
-        </div>
-        <button
-          className={`refresh-btn ${refreshing ? "loading" : ""}`}
-          onClick={onRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}>
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-              </svg>
-              正在同步氣象局資料...
-            </>
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-              </svg>
-              同步最新觀測資料
-            </>
-          )}
-        </button>
-      </div>
-    </aside>
+    </section>
   );
 };

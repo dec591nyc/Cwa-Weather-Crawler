@@ -1,27 +1,187 @@
-export function colorByTemperature(temp: number | null): string {
-  if (temp === null) return "#718096"; // Cool grey for null
-  if (temp < 10) return "#2b6cb0";     // Dark Blue (Cold)
-  if (temp < 15) return "#3182ce";     // Blue (Cool)
-  if (temp < 20) return "#38a169";     // Green (Mild)
-  if (temp < 25) return "#ecc94b";     // Yellow (Comfortable)
-  if (temp < 30) return "#ed8936";     // Orange (Warm)
-  if (temp < 35) return "#e53e3e";     // Red (Hot)
-  return "#9b2c2c";                    // Dark Red (Very Hot)
+import type { ForecastProperties, ObservationMetric, Pm25Observation } from "../types/weather.ts";
+
+export interface MetricConfig {
+  id: ObservationMetric;
+  label: string;
+  shortLabel: string;
+  unit: string;
+  source: "weather" | "airQuality";
+  valueKey: keyof ForecastProperties | keyof Pm25Observation;
+  min: number;
+  max: number;
+  step: number;
+  decimals: number;
+  legendTitle: string;
+  emptyLabel: string;
 }
 
-export function getRadiusByTemperature(temp: number | null): number {
-  if (temp === null) return 8;
-  if (temp < 10 || temp >= 35) return 12;
-  if (temp < 15 || temp >= 30) return 10;
-  return 8;
+export interface LegendItem {
+  label: string;
+  color: string;
+  desc: string;
+  stop: number;
 }
 
-export const legendItems = [
-  { label: "< 10°C", color: "#2b6cb0", desc: "寒冷" },
-  { label: "10–15°C", color: "#3182ce", desc: "涼爽" },
-  { label: "15–20°C", color: "#38a169", desc: "溫和" },
-  { label: "20–25°C", color: "#ecc94b", desc: "舒適" },
-  { label: "25–30°C", color: "#ed8936", desc: "溫暖" },
-  { label: "30–35°C", color: "#e53e3e", desc: "炎熱" },
-  { label: "≥ 35°C", color: "#9b2c2c", desc: "酷熱" },
+export const metricConfigs: Record<ObservationMetric, MetricConfig> = {
+  temperature: {
+    id: "temperature",
+    label: "氣溫",
+    shortLabel: "TEMP",
+    unit: "°C",
+    source: "weather",
+    valueKey: "temperature",
+    min: 0,
+    max: 40,
+    step: 1,
+    decimals: 1,
+    legendTitle: "氣溫級距",
+    emptyLabel: "無氣溫",
+  },
+  rainfall: {
+    id: "rainfall",
+    label: "降水量",
+    shortLabel: "RAIN",
+    unit: "mm",
+    source: "weather",
+    valueKey: "rainfall",
+    min: 0,
+    max: 80,
+    step: 1,
+    decimals: 1,
+    legendTitle: "降水量級距",
+    emptyLabel: "無降水",
+  },
+  humidity: {
+    id: "humidity",
+    label: "濕度",
+    shortLabel: "RH",
+    unit: "%",
+    source: "weather",
+    valueKey: "humidity",
+    min: 0,
+    max: 100,
+    step: 5,
+    decimals: 0,
+    legendTitle: "相對濕度級距",
+    emptyLabel: "無濕度",
+  },
+  wind_speed: {
+    id: "wind_speed",
+    label: "風速",
+    shortLabel: "WIND",
+    unit: "m/s",
+    source: "weather",
+    valueKey: "wind_speed",
+    min: 0,
+    max: 25,
+    step: 1,
+    decimals: 1,
+    legendTitle: "風速級距",
+    emptyLabel: "無風速",
+  },
+  pm25: {
+    id: "pm25",
+    label: "空汙",
+    shortLabel: "PM2.5",
+    unit: "µg/m³",
+    source: "airQuality",
+    valueKey: "pm25",
+    min: 0,
+    max: 80,
+    step: 1,
+    decimals: 0,
+    legendTitle: "PM2.5 級距",
+    emptyLabel: "無 PM2.5",
+  },
+};
+
+export const metricOrder: ObservationMetric[] = [
+  "temperature",
+  "rainfall",
+  "humidity",
+  "wind_speed",
+  "pm25",
 ];
+
+const metricScales: Record<ObservationMetric, LegendItem[]> = {
+  temperature: [
+    { stop: Number.NEGATIVE_INFINITY, label: "< 10°C", color: "#2563eb", desc: "寒冷" },
+    { stop: 10, label: "10-15°C", color: "#0284c7", desc: "偏涼" },
+    { stop: 15, label: "15-20°C", color: "#16a34a", desc: "舒適" },
+    { stop: 20, label: "20-25°C", color: "#ca8a04", desc: "溫和" },
+    { stop: 25, label: "25-30°C", color: "#f97316", desc: "偏暖" },
+    { stop: 30, label: "30-35°C", color: "#dc2626", desc: "炎熱" },
+    { stop: 35, label: ">= 35°C", color: "#7f1d1d", desc: "高溫" },
+  ],
+  rainfall: [
+    { stop: Number.NEGATIVE_INFINITY, label: "0 mm", color: "#94a3b8", desc: "無雨" },
+    { stop: 1, label: "1-5 mm", color: "#38bdf8", desc: "小雨" },
+    { stop: 5, label: "5-15 mm", color: "#0ea5e9", desc: "降雨" },
+    { stop: 15, label: "15-30 mm", color: "#2563eb", desc: "明顯" },
+    { stop: 30, label: "30-50 mm", color: "#7c3aed", desc: "大雨" },
+    { stop: 50, label: ">= 50 mm", color: "#be123c", desc: "劇烈" },
+  ],
+  humidity: [
+    { stop: Number.NEGATIVE_INFINITY, label: "< 50%", color: "#f59e0b", desc: "乾燥" },
+    { stop: 50, label: "50-65%", color: "#84cc16", desc: "舒適" },
+    { stop: 65, label: "65-80%", color: "#14b8a6", desc: "濕潤" },
+    { stop: 80, label: "80-90%", color: "#0ea5e9", desc: "偏濕" },
+    { stop: 90, label: ">= 90%", color: "#1d4ed8", desc: "潮濕" },
+  ],
+  wind_speed: [
+    { stop: Number.NEGATIVE_INFINITY, label: "< 2 m/s", color: "#94a3b8", desc: "微風" },
+    { stop: 2, label: "2-5 m/s", color: "#22c55e", desc: "和風" },
+    { stop: 5, label: "5-10 m/s", color: "#facc15", desc: "明顯" },
+    { stop: 10, label: "10-17 m/s", color: "#f97316", desc: "強風" },
+    { stop: 17, label: ">= 17 m/s", color: "#dc2626", desc: "劇烈" },
+  ],
+  pm25: [
+    { stop: Number.NEGATIVE_INFINITY, label: "0-15", color: "#16a34a", desc: "良好" },
+    { stop: 15, label: "15-25", color: "#ca8a04", desc: "普通" },
+    { stop: 25, label: "25-35", color: "#f97316", desc: "偏高" },
+    { stop: 35, label: "35-54", color: "#dc2626", desc: "不良" },
+    { stop: 54, label: ">= 54", color: "#7f1d1d", desc: "嚴重" },
+  ],
+};
+
+export function getMetricLegendItems(metric: ObservationMetric): LegendItem[] {
+  return metricScales[metric];
+}
+
+export function getMetricColor(metric: ObservationMetric, value: number | null): string {
+  if (value === null || Number.isNaN(value)) return "#64748b";
+  const scale = metricScales[metric];
+  let color = scale[0].color;
+  for (const item of scale) {
+    if (value >= item.stop) color = item.color;
+  }
+  return color;
+}
+
+export function getMapLibreColorExpression(metric: ObservationMetric): unknown[] {
+  const scale = metricScales[metric];
+  const expression: unknown[] = ["step", ["to-number", ["get", "value"]], scale[0].color];
+  for (const item of scale.slice(1)) {
+    expression.push(item.stop, item.color);
+  }
+  return ["case", ["==", ["get", "value"], null], "#64748b", expression];
+}
+
+export function formatMetricValue(metric: ObservationMetric, value: number | null): string {
+  const config = metricConfigs[metric];
+  if (value === null || Number.isNaN(value)) return "-";
+  return `${value.toFixed(config.decimals)}${config.unit}`;
+}
+
+export function getWeatherMetricValue(
+  props: ForecastProperties,
+  metric: ObservationMetric
+): number | null {
+  if (metric === "pm25") return null;
+  const rawValue = props[metricConfigs[metric].valueKey as keyof ForecastProperties];
+  return typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null;
+}
+
+export function getPm25MetricValue(obs: Pm25Observation): number | null {
+  return typeof obs.pm25 === "number" && Number.isFinite(obs.pm25) ? obs.pm25 : null;
+}

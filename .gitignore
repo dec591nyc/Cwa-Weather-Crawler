@@ -1,5 +1,7 @@
 .env
 weather.db
+weather.db.bak
+data/
 raw/
 __pycache__/
 *.pyc

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import math
+
 from fastapi import FastAPI, Query
+from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database.connection import get_connection
 
@@ -34,7 +37,26 @@ def refresh_data():
         count = run_crawler()
         return {"status": "ok", "record_count": count}
     except Exception as exc:
-        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/refresh/weather")
+def refresh_weather_observations():
+    try:
+        from crawler.service import run_weather_observation_crawler
+        count = run_weather_observation_crawler()
+        return {"status": "ok", "record_count": count}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/refresh/pm25")
+def refresh_pm25():
+    try:
+        from crawler.service import run_pm25_crawler
+        count = run_pm25_crawler()
+        return {"status": "ok", "record_count": count}
+    except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -58,6 +80,116 @@ def stations(county: str | None = None):
     with get_connection() as conn:
         rows = conn.execute(sql, params).fetchall()
     return {"count": len(rows), "stations": [dict(row) for row in rows]}
+
+
+def _latest_rows(table: str, county: str | None = None) -> list[dict]:
+    allowed_tables = {"weather_observations", "air_quality_observations"}
+    if table not in allowed_tables:
+        raise ValueError(f"Unsupported table: {table}")
+
+    sql = f"SELECT * FROM {table} WHERE fetched_at = (SELECT MAX(fetched_at) FROM {table})"
+    params: list[object] = []
+    if county:
+        sql += " AND county = ?"
+        params.append(county)
+    with get_connection() as conn:
+        return [dict(row) for row in conn.execute(sql, params).fetchall()]
+
+
+def _stats(values: list[float | None]) -> dict:
+    valid = [value for value in values if value is not None]
+    if not valid:
+        return {"min": None, "max": None, "avg": None, "count": 0}
+    return {
+        "min": min(valid),
+        "max": max(valid),
+        "avg": sum(valid) / len(valid),
+        "count": len(valid),
+    }
+
+
+def _circular_mean_degrees(values: list[float | None]) -> float | None:
+    valid = [value for value in values if value is not None]
+    if not valid:
+        return None
+    sin_sum = sum(math.sin(math.radians(value)) for value in valid)
+    cos_sum = sum(math.cos(math.radians(value)) for value in valid)
+    if sin_sum == 0 and cos_sum == 0:
+        return None
+    return (math.degrees(math.atan2(sin_sum, cos_sum)) + 360) % 360
+
+
+@app.get("/api/weather/latest")
+def latest_weather_observations(
+    county: str | None = None,
+    limit: int = Query(1000, ge=1, le=5000),
+):
+    rows = _latest_rows("weather_observations", county)
+    return {"count": len(rows[:limit]), "observations": rows[:limit]}
+
+
+@app.get("/api/weather/stations.geojson")
+def weather_stations_geojson(county: str | None = None):
+    rows = [
+        row
+        for row in _latest_rows("weather_observations", county)
+        if row.get("lat") is not None and row.get("lon") is not None
+    ]
+    features = []
+    for row in rows:
+        lon = row.pop("lon")
+        lat = row.pop("lat")
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "properties": row,
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
+
+
+@app.get("/api/pm25/latest")
+def latest_pm25(
+    county: str | None = None,
+    limit: int = Query(1000, ge=1, le=5000),
+):
+    rows = _latest_rows("air_quality_observations", county)
+    return {"count": len(rows[:limit]), "observations": rows[:limit]}
+
+
+@app.get("/api/summary/counties")
+def county_summary():
+    weather_rows = _latest_rows("weather_observations")
+    pm25_rows = _latest_rows("air_quality_observations")
+    counties_set = {
+        row.get("county")
+        for row in weather_rows + pm25_rows
+        if row.get("county")
+    }
+
+    summaries = []
+    for county in sorted(counties_set):
+        county_weather = [row for row in weather_rows if row.get("county") == county]
+        county_pm25 = [row for row in pm25_rows if row.get("county") == county]
+        summaries.append(
+            {
+                "county": county,
+                "weather_station_count": len(county_weather),
+                "pm25_station_count": len(county_pm25),
+                "temperature": _stats([row.get("temperature") for row in county_weather]),
+                "rainfall": _stats([row.get("rainfall") for row in county_weather]),
+                "wind_speed": _stats([row.get("wind_speed") for row in county_weather]),
+                "wind_direction_avg": _circular_mean_degrees(
+                    [row.get("wind_direction") for row in county_weather]
+                ),
+                "humidity": _stats([row.get("humidity") for row in county_weather]),
+                "uv_index": _stats([row.get("uv_index") for row in county_weather]),
+                "pm25": _stats([row.get("pm25") for row in county_pm25]),
+                "pm25_avg": _stats([row.get("pm25_avg") for row in county_pm25]),
+            }
+        )
+    return {"count": len(summaries), "summaries": summaries}
 
 
 @app.get("/api/forecast/latest")

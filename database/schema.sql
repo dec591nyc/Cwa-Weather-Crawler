@@ -2,6 +2,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS stations (
     station_id TEXT PRIMARY KEY,
+    source TEXT DEFAULT 'cwa',
     station_name TEXT NOT NULL,
     county TEXT,
     town TEXT,
@@ -9,6 +10,43 @@ CREATE TABLE IF NOT EXISTS stations (
     lon REAL,
     altitude_m REAL,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS weather_observations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    station_id TEXT NOT NULL,
+    station_name TEXT,
+    county TEXT,
+    town TEXT,
+    lat REAL,
+    lon REAL,
+    altitude_m REAL,
+    observed_at TEXT,
+    temperature REAL,
+    rainfall REAL,
+    wind_speed REAL,
+    wind_direction REAL,
+    humidity REAL,
+    uv_index REAL,
+    daily_high REAL,
+    daily_low REAL,
+    weather TEXT,
+    source_dataset TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS air_quality_observations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    station_id TEXT,
+    station_name TEXT NOT NULL,
+    county TEXT,
+    lat REAL,
+    lon REAL,
+    observed_at TEXT,
+    pm25 REAL,
+    pm25_avg REAL,
+    source_dataset TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS forecasts (
@@ -53,3 +91,7 @@ CREATE INDEX IF NOT EXISTS idx_forecasts_station_id ON forecasts(station_id);
 CREATE INDEX IF NOT EXISTS idx_forecasts_time ON forecasts(forecast_start);
 CREATE INDEX IF NOT EXISTS idx_forecasts_county ON forecasts(county);
 CREATE INDEX IF NOT EXISTS idx_fetch_logs_dataset_time ON fetch_logs(dataset_id, fetched_at);
+CREATE INDEX IF NOT EXISTS idx_weather_obs_station_time ON weather_observations(station_id, observed_at);
+CREATE INDEX IF NOT EXISTS idx_weather_obs_county_time ON weather_observations(county, fetched_at);
+CREATE INDEX IF NOT EXISTS idx_air_quality_station_time ON air_quality_observations(station_id, observed_at);
+CREATE INDEX IF NOT EXISTS idx_air_quality_county_time ON air_quality_observations(county, fetched_at);

@@ -84,6 +84,98 @@ def save_forecasts(records: list[dict[str, Any]]) -> int:
     return len(records)
 
 
+def save_weather_observations(records: list[dict[str, Any]]) -> int:
+    if not records:
+        return 0
+
+    with get_connection() as conn:
+        for record in records:
+            conn.execute(
+                """
+                INSERT INTO stations(station_id, station_name, county, town, lat, lon, altitude_m, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(station_id) DO UPDATE SET
+                    station_name=excluded.station_name,
+                    county=excluded.county,
+                    town=excluded.town,
+                    lat=excluded.lat,
+                    lon=excluded.lon,
+                    altitude_m=excluded.altitude_m,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    record.get("station_id"),
+                    record.get("station_name") or record.get("station_id"),
+                    record.get("county"),
+                    record.get("town"),
+                    record.get("lat"),
+                    record.get("lon"),
+                    record.get("altitude_m"),
+                    record.get("fetched_at"),
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO weather_observations(
+                    station_id, station_name, county, town, lat, lon, altitude_m, observed_at,
+                    temperature, rainfall, wind_speed, wind_direction, humidity, uv_index,
+                    daily_high, daily_low, weather, source_dataset, fetched_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record.get("station_id"),
+                    record.get("station_name"),
+                    record.get("county"),
+                    record.get("town"),
+                    record.get("lat"),
+                    record.get("lon"),
+                    record.get("altitude_m"),
+                    record.get("observed_at"),
+                    record.get("temperature"),
+                    record.get("rainfall"),
+                    record.get("wind_speed"),
+                    record.get("wind_direction"),
+                    record.get("humidity"),
+                    record.get("uv_index"),
+                    record.get("daily_high"),
+                    record.get("daily_low"),
+                    record.get("weather"),
+                    record.get("source_dataset"),
+                    record.get("fetched_at"),
+                ),
+            )
+    return len(records)
+
+
+def save_air_quality_observations(records: list[dict[str, Any]]) -> int:
+    if not records:
+        return 0
+
+    with get_connection() as conn:
+        for record in records:
+            conn.execute(
+                """
+                INSERT INTO air_quality_observations(
+                    station_id, station_name, county, lat, lon, observed_at,
+                    pm25, pm25_avg, source_dataset, fetched_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record.get("station_id"),
+                    record.get("station_name"),
+                    record.get("county"),
+                    record.get("lat"),
+                    record.get("lon"),
+                    record.get("observed_at"),
+                    record.get("pm25"),
+                    record.get("pm25_avg"),
+                    record.get("source_dataset"),
+                    record.get("fetched_at"),
+                ),
+            )
+    return len(records)
+
+
 def log_fetch(dataset_id: str, fetched_at: str, status: str, record_count: int, response_ms: int | None, error: str | None = None) -> None:
     with get_connection() as conn:
         conn.execute(
