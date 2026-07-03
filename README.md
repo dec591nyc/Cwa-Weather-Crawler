@@ -2,7 +2,9 @@
 
 台灣即時氣象與 PM2.5 dashboard 專案。目標是以中央氣象署 CWA 觀測資料、環境部 MOENV PM2.5 資料與 Windy 氣象視覺化層，建立一個小而穩定的近即時 dashboard。
 
-目前 repo 已有 FastAPI、SQLite、CWA crawler、normalize layer、repository layer、React/Vite、MapLibre 前端。新的 MVP 方向請以 [docs/development_plan.md](docs/development_plan.md) 為準；forecast-oriented 實作會在後續階段逐步調整。
+目前 repo 已有 FastAPI、SQLite、CWA crawler、normalize layer、repository layer、React/Vite、MapLibre 前端。
+
+forecast-oriented 實作會在後續階段逐步調整。
 
 ## 專案結構
 
@@ -15,8 +17,6 @@ docs/         planning and research docs
 frontend/     React/Vite dashboard
 scripts/      CLI entry points and validation scripts
 ```
-
-`database/` 是程式碼目錄，不放 runtime SQLite 檔案。`weather.db`、raw API snapshots、local backup DB 都放在 `data/`。
 
 ## MVP 方向
 
