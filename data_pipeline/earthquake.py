@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 
 from data_pipeline.normalize import get_first, now_iso, parse_float, parse_text
+
+RECENT_EARTHQUAKE_DAYS = 7
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -13,17 +16,40 @@ def _as_list(value: Any) -> list[Any]:
     return [value]
 
 
+def _parse_cwa_datetime(value: Any) -> datetime | None:
+    text = parse_text(value)
+    if not text:
+        return None
+    normalized = text.replace("T", " ").replace("Z", "").strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M"):
+        try:
+            return datetime.strptime(normalized[:19], fmt)
+        except ValueError:
+            continue
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return parsed.replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _is_recent_earthquake(origin_time: Any, days: int = RECENT_EARTHQUAKE_DAYS) -> bool:
+    parsed = _parse_cwa_datetime(origin_time)
+    if parsed is None:
+        return False
+    return parsed >= datetime.now() - timedelta(days=days)
+
+
 def _safe_key(dataset_id: str, earthquake: dict[str, Any], index: int) -> str:
     number = get_first(earthquake, "EarthquakeNo", "earthquakeNo", "EarthquakeID", "EarthquakeId")
-    info = get_first(earthquake, "EarthquakeInfo", "earthquakeInfo")
-    origin_time = get_first(info, "OriginTime", "originTime") if isinstance(info, dict) else None
-    content = get_first(earthquake, "ReportContent", "reportContent")
-    if number and not dataset_id.upper().startswith("E-A0016"):
-        return str(number)
-    if origin_time:
-        return f"{dataset_id}-{origin_time}-{str(content or number or index)[:28]}"
     if number:
         return str(number)
+    info = get_first(earthquake, "EarthquakeInfo", "earthquakeInfo")
+    if isinstance(info, dict):
+        origin_time = get_first(info, "OriginTime", "originTime")
+    else:
+        origin_time = None
+    content = get_first(earthquake, "ReportContent", "reportContent")
     return f"{dataset_id}-{origin_time or 'unknown'}-{str(content or index)[:28]}"
 
 
@@ -42,6 +68,10 @@ def normalize_cwa_earthquakes(raw_data: dict[str, Any], dataset_id: str) -> dict
             continue
         info = get_first(earthquake, "EarthquakeInfo", "earthquakeInfo")
         info = info if isinstance(info, dict) else {}
+        origin_time = get_first(info, "OriginTime", "originTime", "DateTime", "dateTime")
+        if not _is_recent_earthquake(origin_time):
+            continue
+
         epicenter = get_first(info, "Epicenter", "epicenter")
         epicenter = epicenter if isinstance(epicenter, dict) else {}
         magnitude = get_first(info, "EarthquakeMagnitude", "earthquakeMagnitude")
@@ -67,7 +97,7 @@ def normalize_cwa_earthquakes(raw_data: dict[str, Any], dataset_id: str) -> dict
             "report_content": parse_text(get_first(earthquake, "ReportContent", "reportContent")),
             "report_image_uri": parse_text(get_first(earthquake, "ReportImageURI", "ReportImageUrl", "reportImageURI")),
             "web_uri": parse_text(get_first(earthquake, "Web", "web", "WebURI", "webURI")),
-            "earthquake_time": parse_text(get_first(info, "OriginTime", "originTime", "DateTime", "dateTime")),
+            "earthquake_time": parse_text(origin_time),
             "magnitude_type": parse_text(get_first(magnitude, "MagnitudeType", "magnitudeType")),
             "magnitude_value": parse_float(get_first(magnitude, "MagnitudeValue", "magnitudeValue")),
             "depth_km": parse_float(get_first(info, "FocalDepth", "focalDepth", "Depth", "depth")),
@@ -77,8 +107,9 @@ def normalize_cwa_earthquakes(raw_data: dict[str, Any], dataset_id: str) -> dict
             "max_intensity": max_intensity,
             "fetched_at": fetched_at,
         }
-        if event["epicenter_lat"] is not None and event["epicenter_lon"] is not None:
-            events.append(event)
+        if event["epicenter_lat"] is None or event["epicenter_lon"] is None:
+            continue
+        events.append(event)
 
         for area in shaking_areas:
             if not isinstance(area, dict):

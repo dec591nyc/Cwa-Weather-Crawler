@@ -1,163 +1,173 @@
-# CWA-GeoMap_Monitor
+# CWA GeoMap Monitor
 
-(Taiwan CWA OpenData API GeoMap Monitor)
+台灣即時氣象、雨量、空氣品質與地震觀測地圖。專案整合中央氣象署 CWA、環境部 MOENV 與地圖服務，將具有經緯度的開放資料轉成可互動查詢的前端視覺化儀表板。
 
-<p align="center">
-  <img src="https://img.shields.io/badge/FastAPI-Python-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/React-TypeScript-3178C6?style=for-the-badge&logo=react&logoColor=white" alt="React TypeScript" />
-  <img src="https://img.shields.io/badge/Vite-Frontend-646CFF?style=for-the-badge&logo=vite" alt="Vite" />
-  <img src="https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite" alt="SQLite" />
-  <img src="https://img.shields.io/badge/MapLibre-Renderer-396CB2?style=for-the-badge" alt="MapLibre Renderer" />
-</p>
+## 專案定位
 
-💡 **本專案旨在透過中央氣象署與其他政府機關提供的 OpenData API，建立一個基於國家地圖的環境監測與視覺化應用的網站。**
+本專案專注於「可被地圖化的即時觀測資料」。資料若沒有穩定經緯度欄位，原則上不納入目前開發範圍。
 
-專案透過 OpenData API 呼叫取得觀測資料，經由後端清洗、正規化與儲存後，再以前端 GeoMap 介面呈現測站分布、觀測指標、縣市差異與環境狀態。
+目前不納入範圍：
 
-🔗 [**Live Demo**](https://cwa-weather-crawler.vercel.app/)
+- 沒有經緯度的資料集。
+- 警特報或警示通知功能。
+- 純文字查詢卡片，例如日出日落資料。
+- 需要縣市 polygon highlight 才能合理呈現的資料。
 
----
+## 目前功能
 
-## 🎯 專案核心定位與特色
+- CWA 即時氣象觀測：氣溫、濕度、風速、能見度、天氣現象。
+- CWA 自動氣象站補充資料。
+- CWA 雨量站資料：10 分鐘降雨量、過去 24 小時雨量。
+- MOENV 空氣品質監測：PM2.5、PM10、O3 8hr、CO 8hr、SO2、NO2。
+- CWA 地震資料：近七天地震震央、規模、深度、最大震度與震度測站。
+- OSM 底圖與 Windy 底圖切換。
+- API source stack：依資料來源機關分組顯示已接入資料源。
+- 同步狀態面板：顯示每個資料來源最近同步結果。
 
-本專案定位為 **CWA OpenData API 的地圖監測與視覺化應用**。CWA 是主要氣象資料核心，環境部資料則作為空氣品質觀測延伸整合。
+## 功能取捨
 
-1. **OpenData API 呼叫應用**：後端透過中央氣象署與環境部開放 API 取得觀測資料，整理為前端可直接使用的統一資料結構。
-2. **GeoMap 地圖監測介面**：前端以地圖作為主要互動入口，讓使用者能直接從地理分布理解各地測站狀態。
-3. **空汙 / 氣象指標整合**：目前支援氣溫、近10分降雨、近24時降雨、濕度、風速、能見度、PM2.5 與多項空氣污染物觀測。
-4. **雙地圖視覺化設計**：OSM 底圖提供清楚的測站分布視角；Windy 提供風場背景並疊加同一組觀測指標圓點。
-5. **可擴充的觀測資料流程**：API client、normalization、repository、sync manager 與 FastAPI route layer 分開設計，方便後續加入雨量、地震、日出日落與警特報資料。
+### 過去 24 小時累積雨量
 
----
+保留。理由是累積雨量具有地圖視覺化價值，也能作為後續資料分析與機器學習特徵，例如：
 
-## 🏗️ 系統架構與資料流
+- 區域短時強降雨偵測。
+- 近即時淹水風險、道路風險或山區風險評估。
+- 未來累積歷史資料後，作為降雨趨勢、異常雨量、災害風險模型的輸入特徵。
 
-```mermaid
-flowchart TD
-    subgraph "資料來源"
-        A[中央氣象署 CWA OpenData API]
-        B[環境部 MOENV OpenData API]
-    end
+但資料語意必須正確：如果 CWA API 沒有回傳 24 小時雨量，後端保留 `null`，前端不補成 0。
 
-    subgraph "資料同步核心 data_pipeline"
-        D[API Client]
-        E[Normalize / Clean]
-        F[Repository / SQLite Write]
-        M[Sync Manager]
-    end
+### 日出日落
 
-    subgraph "後端 API 層"
-        R[Routes]
-        S[API Services]
-        Q[Source Catalog]
-    end
+不開發。理由是該資料不屬於即時環境觀測，也沒有穩定經緯度欄位可做 marker。即使能做查詢卡片，也偏離目前地圖化觀測系統的主軸。
 
-    subgraph "前端地圖監測介面"
-        G[OSM Observation Map]
-        H[Windy Observation Map]
-        I[County Summary / Controls]
-    end
+### 警特報與警示功能
 
-    A --> D
-    B --> D
-    D --> E
-    E --> F
-    M --> D
-    R --> M
-    R --> S
-    R --> Q
-    S --> F
-    R --> G
-    R --> H
-    R --> I
-```
+不開發。警特報通常需要行政區或多邊形範圍呈現，不適合 marker。警示推播、通知、告警規則也不在目前專案範圍內。
 
----
+### 地震圖層與最近事件
 
-## 📂 目錄結構與模組說明
+保留。地震資料有震央經緯度與震度測站座標，符合本專案的地圖化條件。近七天資料量較小、可讀性較高，也適合作為事件型圖層。
+
+地震圖層目前提供：
+
+- preprocessing 階段只保留近七天地震。
+- 前端以最小規模 slider 篩選。
+- 地震觀測指標呈現規模、深度、最大震度。
+- 最近事件清單顯示最近五筆符合條件的地震。
+
+## 前端互動設計
+
+Header 只保留底圖模式：
+
+- `OSM`
+- `Windy`
+
+資料內容由下方 LayerControl 控制：
+
+- `氣象 / 雨量 / 空品`
+- `地震事件`
+
+氣象、雨量、空品屬於測站型連續觀測資料，因此使用觀測指標與數值門檻篩選。地震屬於事件型資料，因此固定只保留近七天資料，並使用最小規模 slider 篩選。
+
+## 後端 API
+
+### Refresh
 
 ```text
-├── api/                         # FastAPI HTTP layer
-│   ├── main.py                   # App bootstrap, CORS and router registration
-│   ├── routes/                   # HTTP endpoints grouped by domain
-│   └── services/                 # Query, summary, source catalog and GeoJSON services
-├── data_pipeline/                # CWA / MOENV API clients, data sync and normalization
-│   ├── service.py                # Single-source sync functions
-│   ├── sync_manager.py           # Multi-source sync entry point and future concurrency layer
-│   ├── cwa_client.py             # CWA OpenData API client
-│   ├── moenv_client.py           # MOENV OpenData API client
-│   ├── normalize.py              # Raw API response normalization
-│   └── repository.py             # Raw snapshots, DB write and fetch logs
-├── database/                     # SQLite connection, schema, initialization and lightweight migrations
-├── data/                         # Local runtime data, ignored by git
-├── docs/                         # API source review, planning and deployment notes
-├── frontend/                     # React / Vite GeoMap monitor frontend
-└── scripts/                      # CLI scripts for API sync, init and validation
+POST /api/refresh/observations
+POST /api/refresh/weather
+POST /api/refresh/rainfall
+POST /api/refresh/air-quality
+POST /api/refresh/earthquakes
+POST /api/refresh/all
 ```
 
----
+`/api/refresh/observations` 會回傳每個來源的同步結果。部分來源失敗時，不會直接讓前端只能看到模糊的 HTTP 500。
 
-## 📊 資料來源與視覺化模式
+### Observation
 
-| 類別 | Dataset / 服務 | 用途 | 目前狀態 |
-| --- | --- | --- | --- |
-| 中央氣象署 CWA | `O-A0003-001` | 即時氣象觀測、能見度、雨量欄位預留 | Active |
-| 環境部 MOENV | `aqx_p_432` | 空品狀態、指標污染物、PM2.5、PM10、O3、CO、NO2、SO2 | Active |
-| 中央氣象署 CWA | `O-A0001-001` | 自動氣象站觀測 | Candidate |
-| 中央氣象署 CWA | `O-A0002-001` | 自動雨量站與累積雨量專層 | Candidate |
-| 中央氣象署 CWA | `A-B0062-001` | 日出日沒 | Candidate，需要行政區或 geocode join |
-| 中央氣象署 CWA | `W-C0033-001` / `W-C0033-006` | 天氣警特報與影響區域 | Candidate，需要區域 join |
-| 中央氣象署 CWA | `E-A0015-001` / `E-A0016-001` | 地震報告與震度 | Candidate |
+```text
+GET /api/weather/latest
+GET /api/weather/stations.geojson
+GET /api/pm25/latest
+GET /api/air-quality/latest
+GET /api/summary/counties
+```
 
-完整 API 可用性盤點請看 [`docs/API_SOURCES.md`](docs/API_SOURCES.md)。
+### Earthquake
 
----
+```text
+GET /api/earthquakes/latest?limit=100&min_magnitude=3
+GET /api/earthquakes/epicenters.geojson?limit=100&min_magnitude=3
+```
 
-## 🧮 空氣污染物指標
+地震資料在 preprocessing 階段會先過濾，只保留近七天事件。前端再用最小規模 slider 做畫面篩選。
 
-本專案目前不把綜合空品分數作為前端觀測指標，而是直接呈現環境部空氣品質監測資料中的污染物觀測值。這樣能讓使用者直接比較 PM2.5、PM10、O3、CO、SO2、NO2 等具體測項。
+### Source and status
 
-目前前端使用的空品欄位包含：`status`、`pollutant`、`pm25`、`pm25_avg`、`pm10`、`pm10_avg`、`so2`、`co`、`co_8hr`、`o3`、`o3_8hr`、`no2`、`nox`、`no`。
+```text
+GET /api/data-sources
+GET /api/sync/status
+GET /api/health
+```
 
----
+`/api/sync/status` 回傳：
 
-## 👁️ 能見度與累積雨量
+- `ok`：所有已接入資料來源最近同步成功。
+- `warning`：部分資料來源失敗或尚未同步。
+- `error`：核心資料來源都無法同步。
 
-能見度由 CWA 觀測資料的 `Visibility` 或 `VisibilityDescription` 正規化為 `visibility_km` 與 `visibility_description`，前端可直接用於地圖點位、排行與縣市摘要。
+## 主要資料來源
 
-雨量目前分成 `rainfall_10min` 與 `rainfall_today`。`rainfall_10min` 只取 CWA 回傳的最近 10 分鐘雨量，不再使用 15 分鐘雨量欄位；`rainfall_today` 用於保存今日或日累積雨量。
+| Provider | Dataset | 用途 |
+| --- | --- | --- |
+| CWA | `O-A0003-001` | 有人氣象站現在天氣觀測 |
+| CWA | `O-A0001-001` | 自動氣象站觀測補充 |
+| CWA | `O-A0002-001` | 雨量站 10 分鐘與 24 小時雨量 |
+| CWA | `E-A0015-001` | 地震報告 |
+| CWA | `E-A0016-001` | 小區域有感地震 |
+| CWA | `F-D0047-093` | 鄉鎮天氣預報 |
+| MOENV | `aqx_p_432` | 空氣品質監測即時資料 |
 
----
+## 效能改善方向
 
-## ⚡ 資料載入與效能設計
+目前讀取偏慢的主因可能是初次載入同時觸發同步、資料源較多、前端一次載入多個 endpoint。後續可優先處理：
 
-後端資料同步採用清楚分層的 API client、normalization、repository 與 sync manager 流程，讓 CWA 與 MOENV 資料可以在同一套管線中清洗、保存與對外服務。
+1. 首頁不自動同步所有資料，改為讀取資料庫最新快取。
+2. 手動更新按鈕才觸發 `/api/refresh/observations`。
+3. 後端新增 summary cache，避免每次載入都即時計算縣市彙整。
+4. 地震、空品、氣象資料分開 lazy loading。
+5. 前端只在切換到地震圖層時讀取地震資料。
+6. API 加入 response compression 與查詢 limit。
+7. 大量歷史資料改用 PostgreSQL/Supabase，並針對 `source_dataset`、`station_id`、`observed_at` 建索引。
 
-前端首頁採用瀏覽器端並行請求設計，同時取得縣市摘要、CWA GeoJSON 測站資料、空氣品質觀測資料、健康檢查與 API source catalog，降低初次載入等待時間。
+## 未來發展
 
-`data_pipeline/sync_manager.py` 集中管理多資料源同步入口，讓天氣、雨量、空氣污染物與未來擴充資料能維持一致的更新介面。
+### 歷史資料與機器學習
 
----
+累積歷史資料後，可延伸為：
 
-## 🔑 環境變數
+- 降雨異常偵測。
+- 空氣品質趨勢預測。
+- 區域環境風險評分。
+- 地震事件與震度測站資料的統計分析。
+- 多資料源特徵工程，例如雨量、風速、能見度、污染物濃度的交互分析。
 
-本專案需要 CWA、MOENV 與 Windy 的環境變數設定。實際變數名稱與範例請參考 `.env.example`，正式部署時請在後端平台與前端平台分別設定。
+這類功能不屬於目前 MVP，但適合放入後續版本。
 
----
+## 本機開發
 
-## 🚀 部署與本地開發
+### Backend
 
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-py scripts/init_db.py
-py scripts/run_weather_observations.py
-py scripts/run_air_quality_observations.py
-uvicorn api.main:app --reload
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m database.init_db
+python -m uvicorn api.main:app --reload
 ```
 
-前端：
+### Frontend
 
 ```powershell
 cd frontend
@@ -165,45 +175,30 @@ npm install
 npm run dev
 ```
 
----
+### 常用檢查
 
-## 📡 API Endpoints
+```powershell
+curl http://127.0.0.1:8000/api/sync/status
+curl -X POST http://127.0.0.1:8000/api/refresh/observations
+curl http://127.0.0.1:8000/api/earthquakes/latest
+```
 
-| Endpoint | Method | 說明 |
-| --- | --- | --- |
-| `/api/health` | GET | 服務狀態與最新同步資訊 |
-| `/api/data-sources` | GET | 專案使用與候選 API source catalog |
-| `/api/weather/stations.geojson` | GET | CWA 測站觀測資料 GeoJSON |
-| `/api/weather/latest` | GET | 最新 CWA 氣象觀測資料 |
-| `/api/pm25/latest` | GET | 最新空氣品質觀測資料，保留相容舊命名 |
-| `/api/air-quality/latest` | GET | 最新空氣品質觀測資料 |
-| `/api/summary/counties` | GET | 縣市層級摘要資料 |
-| `/api/refresh/weather` | POST | 更新 CWA 氣象觀測資料 |
-| `/api/refresh/air-quality` | POST | 更新 MOENV 空氣品質資料 |
-| `/api/refresh/observations` | POST | 透過 sync manager 更新主要觀測資料來源 |
-| `/api/refresh/all` | POST | 透過 sync manager 更新全部已接入觀測資料來源 |
+檢查 CWA 雨量 raw response 是否包含 24 小時欄位：
 
-Legacy note：舊的 `/api/temperature/geojson` 已移除，現在統一使用 `/api/weather/stations.geojson`。
+```powershell
+$env:CWA_API_KEY="你的CWA_KEY"
+python scripts/check_rainfall_fields.py
+```
 
----
+## 環境變數
 
-## 🧭 未來發展
+```text
+CWA_API_KEY=your_cwa_api_key
+MOENV_API_KEY=your_moenv_api_key
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_WINDY_API_KEY=your_windy_key
+```
 
-- 接入 `O-A0002-001` 作為累積雨量專層。
-- 接入 `E-A0015-001` / `E-A0016-001` 做地震震央與震度圖層。
-- 接入 `A-B0062-001` 做日出日落資訊卡。
-- 接入 `W-C0033-001` / `W-C0033-006` 做警特報區域圖層。
-- 建立高溫、強風、強降雨、高 UV、低能見度與空氣品質不良等警示條件。
-- 依資料量與部署平台評估非同步抓取、背景任務佇列或 PostgreSQL，提升多資料源更新效率。
-- 累積歷史資料後，加入縣市趨勢、時間序列比較與異常觀測提示。
+## 架構圖處理
 
----
-
-## 📝 開發收穫
-
-- 地圖視覺化與資料真相來源需要分離；Windy 適合作為風場背景，測站數值、摘要與排名仍應由後端正規化資料提供。
-- 空氣品質呈現應優先對齊具體污染物測項，讓使用者能直接比較 PM2.5、PM10、O3、CO、SO2、NO2 等來源值。
-- 政府開放資料常見缺值與 sentinel value，例如 `-99`、`-999`，需要在後端清理後再交給前端呈現。
-- 環境觀測資料應明確區分 `observed_at` 與 `fetched_at`，避免使用者誤解資料新鮮度。
-- OSM 與 Windy 模式應共用相同的指標、篩選條件、門檻與圖例，降低使用者操作成本。
-- README、`.env.example` 與部署文件需要和實際功能同步，尤其是前後端分離時的環境變數設定與 API 使用邊界。
+原本「系統架構與資訊流」圖表可讀性不足，文字過小且不易放大。README 先移除該架構圖，改用文字描述系統設計。若後續要恢復，建議改成獨立頁面或 SVG/Excalidraw 檔案，不要塞在小尺寸區塊中。
