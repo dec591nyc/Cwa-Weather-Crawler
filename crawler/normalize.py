@@ -3,16 +3,20 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-INVALID_VALUES = {"", "X", "NA", "null", "None", "-99", "-999", None}
+INVALID_VALUES = {"", "X", "NA", "null", "None", "-99", "-990", "-999", "-9999", None}
+INVALID_NUMERIC_VALUES = {-99.0, -990.0, -999.0, -9999.0}
 
 
 def parse_float(value: Any) -> float | None:
     if value in INVALID_VALUES:
         return None
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return None
+    if parsed in INVALID_NUMERIC_VALUES:
+        return None
+    return parsed
 
 
 def now_iso() -> str:

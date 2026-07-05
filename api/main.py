@@ -7,6 +7,23 @@ from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from database.connection import get_connection
 
+INVALID_NUMERIC_VALUES = {-99.0, -990.0, -999.0, -9999.0}
+NUMERIC_OBSERVATION_FIELDS = {
+    "lat",
+    "lon",
+    "altitude_m",
+    "temperature",
+    "rainfall",
+    "wind_speed",
+    "wind_direction",
+    "humidity",
+    "uv_index",
+    "daily_high",
+    "daily_low",
+    "pm25",
+    "pm25_avg",
+}
+
 app = FastAPI(title="CWA Weather Data Platform")
 
 app.add_middleware(
@@ -93,11 +110,30 @@ def _latest_rows(table: str, county: str | None = None) -> list[dict]:
         sql += " AND county = ?"
         params.append(county)
     with get_connection() as conn:
-        return [dict(row) for row in conn.execute(sql, params).fetchall()]
+        return [_sanitize_observation_row(dict(row)) for row in conn.execute(sql, params).fetchall()]
+
+
+def _clean_number(value: object) -> object:
+    if value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return value
+    if parsed in INVALID_NUMERIC_VALUES:
+        return None
+    return parsed
+
+
+def _sanitize_observation_row(row: dict) -> dict:
+    for field in NUMERIC_OBSERVATION_FIELDS:
+        if field in row:
+            row[field] = _clean_number(row[field])
+    return row
 
 
 def _stats(values: list[float | None]) -> dict:
-    valid = [value for value in values if value is not None]
+    valid = [value for value in values if value is not None and value not in INVALID_NUMERIC_VALUES]
     if not valid:
         return {"min": None, "max": None, "avg": None, "count": 0}
     return {

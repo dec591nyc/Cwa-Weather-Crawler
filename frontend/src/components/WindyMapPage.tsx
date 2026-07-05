@@ -15,6 +15,8 @@ declare global {
   }
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
 const WINDY_SCRIPT_URL = "https://api.windy.com/assets/map-forecast/libBoot.js";
 const WINDY_INIT_TIMEOUT_MS = 10000;
 
@@ -154,7 +156,7 @@ export const WindyMapPage: React.FC = () => {
       }
     };
 
-    init();
+    void init();
 
     return () => {
       cancelled = true;
@@ -176,8 +178,8 @@ export const WindyMapPage: React.FC = () => {
     markerLayerRef.current = layer;
 
     const [weatherRes, pm25Res] = await Promise.all([
-      fetch("/api/weather/stations.geojson"),
-      fetch("/api/pm25/latest"),
+      fetch(apiUrl("/api/weather/stations.geojson")),
+      fetch(apiUrl("/api/pm25/latest")),
     ]);
     if (!weatherRes.ok) throw new Error("Failed to load weather stations");
     if (!pm25Res.ok) throw new Error("Failed to load PM2.5 stations");
@@ -210,6 +212,7 @@ export const WindyMapPage: React.FC = () => {
             <dt>降水</dt><dd>${props.rainfall ?? "-"} mm</dd>
             <dt>風速</dt><dd>${props.wind_speed ?? "-"} m/s</dd>
             <dt>濕度</dt><dd>${props.humidity ?? "-"}%</dd>
+            <dt>時間</dt><dd>${props.observed_at || "-"}</dd>
           </dl>
         </div>
       `);
@@ -242,7 +245,7 @@ export const WindyMapPage: React.FC = () => {
   };
 
   return (
-    <main className="windy-page">
+    <main className="windy-page" aria-label="Windy 風場地圖">
       <div className="windy-map-shell">
         <div id="windy" ref={containerRef} />
         <div className="windy-status-panel">

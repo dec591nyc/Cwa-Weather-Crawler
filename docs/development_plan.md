@@ -1,6 +1,6 @@
 # CWA Weather Crawler 開發計畫書
 
-更新日期：2026-07-03
+更新日期：2026-07-04
 
 ## 1. 目前專案診斷
 
@@ -33,7 +33,7 @@ MVP 包含：
 - 一支 CWA 即時/近即時觀測 API。
 - 一支 MOENV PM2.5 API。
 - CWA 與 MOENV key 只由後端控管。
-- Windy 作為主要氣象視覺化層，或先以獨立 `/windy` 頁面驗證。
+- OSM/MapLibre 作為正式 dashboard 地圖；Windy 與第三方天氣疊圖暫緩，不進 MVP 主介面。
 - 各縣市目前氣溫、降水、風速、風向、相對濕度、PM2.5 狀態。
 - 測站 marker、popup、縣市統計表、排行、資料更新時間。
 - PM2.5 從 MVP 起就定期寫入 SQLite，累積自己的時間序列。
@@ -53,7 +53,7 @@ MVP 不包含：
 - CWA 官方 OpenAPI：`https://opendata.cwa.gov.tw/apidoc/v1`
 - CWA 測站清單參考：`https://hdps.cwa.gov.tw/static/state.html`
 - MOENV 官方 OpenAPI：`https://data.moenv.gov.tw/swagger/openapi.yaml`
-- Windy Map Forecast API docs / pricing。
+- Windy Map Forecast API docs / pricing；因前端 key/domain 與第三方 script 風險，MVP 已決策移除。
 
 實測狀態：
 
@@ -74,7 +74,7 @@ MVP 不包含：
 | 細懸浮微粒資料 PM2.5 | `aqx_p_02` | PM2.5 | 待有效 key 確認 | 待有效 key | 待驗證 | 待驗證 | 無 | 無 | 無 | 無 | 無 | 無 | 無 | 無 | 未確認 | 7/10 | 7/10 | 若比 `aqx_p_432` 更乾淨且 metadata 足夠，可作 PM2.5 主來源。 |
 | 鹿林山紫外線即時監測資料 | `uv_s_01` | UV | 即時資料集名稱 | 可能很有限 | 不適合全台 | 待驗證 | 無 | 無 | 無 | 無 | 無 | 無 | 有，但疑似單站/特定站 | 無 | 即時 UV | 4/10 | 2/10 | 不作 MVP 全台 UV 主來源。 |
 | 紫外線測站位置圖 | `gisepa_p_26` | UV metadata | 靜態/位置資料 | 待驗證 | 待驗證 | 可能有 | 無 | 無 | 無 | 無 | 無 | 無 | 只有測站位置 | 無 | metadata | 4/10 | 2/10 | 只能輔助，不能提供 UV 即時值。 |
-| Windy Map Forecast API | 視覺 API | 地圖/forecast overlay | 依模型與方案 | 非測站資料 | 不是統計來源 | 地圖座標 | overlay | overlay | overlay | overlay | overlay | overlay | 需依方案/overlay 支援確認 | 有 satellite/cloud 等視覺層 | forecast 視覺 | 7/10 | 8/10 | 只作視覺層，不作後端統計真相來源。 |
+| Windy Map Forecast API | 視覺 API | 地圖/forecast overlay | 依模型與方案 | 非測站資料 | 不是統計來源 | 地圖座標 | overlay | overlay | overlay | overlay | overlay | overlay | 需依方案/overlay 支援確認 | 有 satellite/cloud 等視覺層 | forecast 視覺 | 7/10 | 暫緩 | 已從 MVP 介面移除；後續若要恢復，需先解決 key/domain、production plan 與 lifecycle 風險。 |
 
 ## 5. CWA API 選擇
 
@@ -144,69 +144,27 @@ MVP 規則：
 - Infrared：紅外線衛星影像，常用於雲頂/雲系觀察，不是 UV。
 - Satellite：衛星影像視覺層，不是測站 UV 量測。
 
-## 8. Windy 整合策略
+## 8. 地圖與天氣疊圖策略
 
-Windy 定位為「氣象視覺化層」，不是後端統計資料來源。
+正式 dashboard 目前固定使用 MapLibre + OpenStreetMap。Windy 與 RainViewer 類第三方天氣疊圖已從 MVP 主介面移除。
 
 後端統計真相來源：
 
 - CWA：氣象測站值與縣市氣象統計。
 - MOENV：PM2.5 測站值、縣市 PM2.5 統計、PM2.5 儲存。
 
-官方文件確認的 Windy 重點：
+移除原因：
 
-- Map Forecast API 基於 Leaflet。
-- Windy visualizations 是 map 上的 extensions。
-- 需要透過 `libBoot.js` 初始化。
-- Testing 版只供開發，不可用於 production。
-- Professional 版提供更多 models/layers 與較高 sessions。
-- 同一頁只能有一個 Windy Map instance。
-- Windy 使用全域 CSS/id selectors 與 localStorage，前端需要隔離樣式與 lifecycle。
+- RainViewer overlay 在目前 zoom/tile 條件下容易出現 `Zoom Level Not Supported`，視覺價值不足。
+- Windy 需要前端載入第三方 script，且 production key/domain 授權、Testing key 限制、單一 instance lifecycle 都會增加部署風險。
+- MVP 的核心價值是 CWA/MOENV 測站觀測、縣市統計與排行，不是第三方 forecast overlay。
 
-### 方案 A：主地圖改為 Windy/Leaflet
+後續若要恢復天氣視覺層，必須先滿足：
 
-做法：
-
-- 將主地圖改為 Windy Map Forecast API。
-- CWA 與 PM2.5 測站使用 Leaflet marker/custom overlay 疊上去。
-- 移除 MapLibre/RainViewer 主流程。
-
-優點：
-
-- 視覺效果改善最大。
-- 避免 RainViewer tile zoom/source 不穩定問題。
-- Windy overlay 在原生支援的 Leaflet 環境中使用。
-
-缺點：
-
-- 前端重構較大。
-- 需要處理 Windy 單 instance lifecycle。
-- Windy key/domain 授權要先確認。
-
-### 方案 B：保留 MapLibre，另建 `/windy`
-
-做法：
-
-- 先保留現有 MapLibre dashboard。
-- 新增獨立 `/windy` 頁面驗證 Windy key、domain、marker overlay。
-
-優點：
-
-- 遷移風險低。
-- 可以先驗證 Windy，而不破壞現有 dashboard。
-
-缺點：
-
-- 會暫時維護 MapLibre + Windy 兩套地圖。
-- RainViewer 已從主 dashboard 移除；剩餘風險主要是暫時維護 MapLibre dashboard 與 Windy proof page 兩套地圖。
-
-建議：
-
-- 目前已採方案 B 作 proof-of-concept：header 可切換 `Dashboard` / `Windy`。
-- `OSM` dashboard 保留 MapLibre，但已收斂為固定 OpenStreetMap 底圖，避免多底圖切換造成維護與測試成本。
-- `Windy` 頁面已加入 loader timeout 與更明確的錯誤診斷，避免只顯示 `windyInit` 不可用。
-- Windy key/domain、overlay、marker、build 都穩定後，再評估是否收斂成方案 A。
-- RainViewer overlay 已自 dashboard 移除；原因是 zoom/tile 限制容易出現 `Zoom Level Not Supported`，目前不再列為主 dashboard 功能。
+- 使用可上 production 的授權方案。
+- domain authorization 已驗證。
+- 不把 CWA/MOENV 後端 key 暴露到 browser。
+- 有明確 fallback，不影響 OSM 主 dashboard。
 
 ## 9. API Key 與安全策略
 
@@ -220,12 +178,11 @@ MOENV：
 - 新增 `MOENV_API_KEY`，只放後端。
 - 前端不得直接打 MOENV API。
 
-Windy：
+前端：
 
-- 若 Windy key 必須在 browser 使用，使用 `VITE_WINDY_API_KEY` 或等效 Vite env。
-- 不硬寫在 repo。
-- README 必須說明 Windy key 會暴露在前端 bundle 的風險。
-- 必須依 Windy 後台設定授權 domain，避免 `Not authorized to Windy API: key is used from unauthorized domain`。
+- 雲端部署時使用 `VITE_API_BASE_URL` 指向 FastAPI 後端。
+- 不在前端保存 CWA/MOENV API key。
+- Windy key 已從 MVP env 移除。
 
 ## 10. 資料儲存策略
 
@@ -262,7 +219,7 @@ PM2.5：
 
 MVP UI：
 
-- Windy map 或 `/windy` proof page。
+- OSM/MapLibre 主地圖。
 - CWA weather station markers。
 - PM2.5 station markers 或 PM2.5 marker mode。
 - 縣市目前氣象/PM2.5 統計表。
@@ -296,7 +253,7 @@ MVP 不做：
 - 機器學習模型。
 - AI 預測。
 
-雷達、衛星、雲圖、UV、紅外線雲圖只列為 Windy 視覺層研究項目。只有在 Windy 穩定支援且不大幅增加架構複雜度時，才納入 MVP。
+雷達、衛星、雲圖、UV、紅外線雲圖不列入 MVP。只有在第三方視覺層授權、穩定性與 fallback 都通過後，才重新評估。
 
 ## 13. 未來擴充方向
 
@@ -317,7 +274,7 @@ MVP 不做：
 ## 14. 開發順序
 
 1. 完成 API research 與 MVP 決策。
-2. 整理後端設定：`CWA_API_KEY`、CWA dataset、`MOENV_API_KEY`、MOENV dataset、Windy frontend env。
+2. 整理後端設定：`CWA_API_KEY`、CWA dataset、`MOENV_API_KEY`、MOENV dataset、`VITE_API_BASE_URL`。
 3. 建立小型 source clients：CWA observation client、MOENV PM2.5 client。
 4. 建立 validation scripts：筆數、縣市覆蓋、欄位缺值率、sample schema dump，且不輸出 secrets。
 5. 以 migration-safe 方式調整 SQLite schema。
@@ -329,9 +286,9 @@ MVP 不做：
    - `/api/pm25/latest`
    - `/api/summary/counties`
    - `/api/health`
-8. 建立 Windy proof page 或替換主地圖。
+8. 固定 OSM/MapLibre 主地圖，移除 Windy 與第三方天氣疊圖。
 9. 加入 CWA 與 PM2.5 markers。
-10. 加入縣市統計卡片、表格、排行。
+10. 加入縣市統計、表格、排行。
 11. 更新 README 與 `.env.example`。
 12. 新 API 穩定後，再移除或降級舊 forecast UI/API。
 
@@ -349,10 +306,9 @@ MVP 不做：
 
 - `npm run build`
 - TypeScript compile。
-- 瀏覽器檢查 Windy 是否只初始化一次。
 - marker 是否顯示。
-- 切換頁面是否造成 duplicate Windy instance。
-- Windy key/domain 錯誤是否有可讀訊息。
+- 切換指標是否更新 marker 與縣市統計。
+- 雲端前端 `VITE_API_BASE_URL` 是否正確指向後端。
 
 資料錯誤情境：
 
@@ -363,16 +319,11 @@ MVP 不做：
 - MOENV API 500/rate limit。
 - 必要欄位缺失。
 - 沒有最新觀測資料。
-- Windy key/domain unauthorized。
 
 ## 16. 已知風險
 
-- 目前 CWA key 回 401，live records 尚未驗證。
-- MOENV records probe 回 500，需要有效會員 key 或平台重試。
-- Windy Testing key 不能上 production。
-- Windy key 若在前端使用會被看見，必須用 domain 授權控管。
-- Windy 使用全域 CSS/id selectors，可能和 app CSS 衝突。
-- Windy 同頁只允許一個 map instance。
+- 雲端部署若使用 SQLite，必須確認 database path 在 persistent disk/volume。
+- refresh endpoints 正式公開前需要權限控管。
 - `O-A0003-001` 雖然 enum 有 `UVIndex`，但實際覆蓋率需 live 驗證。
 - `Now` 欄位語意需確認，避免把非降水資料標成降水量。
 - 縣市統計必須回傳有效樣本數，避免平均值誤導。

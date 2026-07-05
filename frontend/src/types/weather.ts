@@ -68,3 +68,29 @@ export interface Pm25Observation {
   source_dataset: string;
   fetched_at: string;
 }
+
+export interface NumericStats {
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+  count: number;
+}
+
+export interface CountySummary {
+  county: string;
+  weather_station_count: number;
+  pm25_station_count: number;
+  temperature: NumericStats;
+  rainfall: NumericStats;
+  humidity: NumericStats;
+  wind_speed: NumericStats;
+  wind_direction_avg: number | null;
+  uv_index: NumericStats;
+  pm25: NumericStats;
+  pm25_avg: NumericStats;
+}
+
+export interface CountySummaryResponse {
+  count: number;
+  summaries: CountySummary[];
+}
