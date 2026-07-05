@@ -24,7 +24,7 @@ NUMERIC_OBSERVATION_FIELDS = {
     "pm25_avg",
 }
 
-app = FastAPI(title="CWA Weather Data Platform")
+app = FastAPI(title="CWA GeoMap Monitor API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,8 +50,8 @@ def health():
 @app.post("/api/refresh")
 def refresh_data():
     try:
-        from crawler.service import run_crawler
-        count = run_crawler()
+        from data_pipeline.service import sync_forecasts
+        count = sync_forecasts()
         return {"status": "ok", "record_count": count}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -60,8 +60,8 @@ def refresh_data():
 @app.post("/api/refresh/weather")
 def refresh_weather_observations():
     try:
-        from crawler.service import run_weather_observation_crawler
-        count = run_weather_observation_crawler()
+        from data_pipeline.service import sync_weather_observations
+        count = sync_weather_observations()
         return {"status": "ok", "record_count": count}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -70,8 +70,8 @@ def refresh_weather_observations():
 @app.post("/api/refresh/pm25")
 def refresh_pm25():
     try:
-        from crawler.service import run_pm25_crawler
-        count = run_pm25_crawler()
+        from data_pipeline.service import sync_pm25_observations
+        count = sync_pm25_observations()
         return {"status": "ok", "record_count": count}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
