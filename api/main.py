@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import air_quality, forecast, health, refresh, sources, summary, weather
+from database.init_db import init_db
 
 app = FastAPI(title="CWA GeoMap Monitor API")
 
@@ -14,6 +15,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def ensure_database_schema() -> None:
+    init_db()
+
 
 app.include_router(health.router)
 app.include_router(refresh.router)
