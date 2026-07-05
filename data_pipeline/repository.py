@@ -74,7 +74,7 @@ def save_weather_observations(records: list[dict[str, Any]]) -> int:
 
     weather_columns = [
         "station_id", "station_name", "county", "town", "lat", "lon", "altitude_m", "observed_at",
-        "temperature", "rainfall", "rainfall_1h", "rainfall_today", "wind_speed", "wind_direction", "humidity",
+        "temperature", "rainfall", "rainfall_10min", "rainfall_1h", "rainfall_today", "wind_speed", "wind_direction", "humidity",
         "visibility_km", "visibility_description", "uv_index", "daily_high", "daily_low", "weather",
         "source_dataset", "fetched_at",
     ]
