@@ -28,39 +28,9 @@ def sync_forecasts() -> int:
         raise
 
 
-def sync_weather_observations() -> int:
+def _sync_cwa_observation_dataset(dataset_id: str, params: dict | None = None) -> int:
     fetched_at = now_iso()
-    dataset_id = settings.cwa_observation_dataset_id
     client = CwaClient(settings.cwa_api_key, dataset_id)
-    params = {
-        "WeatherElement": [
-            "Weather",
-            "Now",
-            "WindDirection",
-            "WindSpeed",
-            "AirTemperature",
-            "RelativeHumidity",
-            "Visibility",
-            "VisibilityDescription",
-            "UVIndex",
-            "DailyHigh",
-            "DailyLow",
-        ],
-        "RainfallElement": [
-            "Now",
-            "Past1hr",
-            "DailyRainfall",
-            "TodayRainfall",
-        ],
-        "GeoInfo": [
-            "Coordinates",
-            "StationAltitude",
-            "CountyName",
-            "TownName",
-            "CountyCode",
-            "TownCode",
-        ],
-    }
     try:
         raw_data, response_ms = client.fetch(params)
         records = normalize_cwa_observations(raw_data, dataset_id)
@@ -71,6 +41,26 @@ def sync_weather_observations() -> int:
     except Exception as exc:
         log_fetch(dataset_id, fetched_at, "failed", 0, None, str(exc))
         raise
+
+
+def sync_weather_observations() -> int:
+    return _sync_cwa_observation_dataset(settings.cwa_observation_dataset_id)
+
+
+def sync_rainfall_observations() -> int:
+    params = {
+        "RainfallElement": [
+            "Now",
+            "Past10Min",
+            "Past15Min",
+            "Past1hr",
+            "DailyRainfall",
+            "TodayRainfall",
+            "DailyAccumulatedPrecipitation",
+        ],
+        "GeoInfo": ["Coordinates", "StationAltitude", "CountyName", "TownName"],
+    }
+    return _sync_cwa_observation_dataset(settings.cwa_rainfall_dataset_id, params)
 
 
 def sync_pm25_observations() -> int:
