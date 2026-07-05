@@ -157,7 +157,7 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
         else:
             rainfall = parse_float(now_value)
         if rainfall is None:
-            rainfall = extract_rainfall_value(rainfall_element, weather_element, "Now", "Past10Min", "Precipitation")
+            rainfall = extract_rainfall_value(rainfall_element, weather_element, "Now", "Precipitation")
 
         visibility_raw = extract_weather_value(weather_element, "Visibility", "VisibilityDescription")
         lat, lon = parse_coordinates(geo_info, station)
@@ -179,12 +179,8 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
                 "observed_at": str(observed_at) if observed_at else None,
                 "temperature": parse_float(extract_weather_value(weather_element, "AirTemperature", "Temperature")),
                 "rainfall": rainfall,
-                "rainfall_10min": extract_rainfall_value(rainfall_element, weather_element, "Past10Min", "Past10MinRainfall"),
-                "rainfall_1h": extract_rainfall_value(rainfall_element, weather_element, "Past1hr", "Past1Hour", "Past1Hr"),
-                "rainfall_3h": extract_rainfall_value(rainfall_element, weather_element, "Past3hr", "Past3Hour", "Past3Hr"),
-                "rainfall_6h": extract_rainfall_value(rainfall_element, weather_element, "Past6Hr", "Past6hr", "Past6Hour"),
-                "rainfall_12h": extract_rainfall_value(rainfall_element, weather_element, "Past12hr", "Past12Hour", "Past12Hr"),
-                "rainfall_24h": extract_rainfall_value(rainfall_element, weather_element, "Past24hr", "Past24Hour", "Past24Hr"),
+                "rainfall_1h": extract_rainfall_value(rainfall_element, weather_element, "Past1hr", "Past1Hour", "Past1Hr", "HourRainfall"),
+                "rainfall_today": extract_rainfall_value(rainfall_element, weather_element, "DailyRainfall", "TodayRainfall", "Today", "AccumulatedPrecipitation", "AccumulatedRainfall"),
                 "wind_speed": parse_float(extract_weather_value(weather_element, "WindSpeed")),
                 "wind_direction": parse_float(extract_weather_value(weather_element, "WindDirection")),
                 "humidity": parse_float(extract_weather_value(weather_element, "RelativeHumidity", "Humidity")),
@@ -203,11 +199,7 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
 
 
 def normalize_moenv_pm25(raw_data: dict[str, Any] | list[Any], dataset_id: str) -> list[dict[str, Any]]:
-    """Normalize MOENV air-quality records from aqx_p_432.
-
-    AQI is ingested from the official MOENV `aqi` field. The project stores the
-    published AQI and pollutant values; it does not recalculate AQI from PM2.5.
-    """
+    """Normalize MOENV air-quality records from aqx_p_432."""
     fetched_at = now_iso()
     records = raw_data.get("records", []) if isinstance(raw_data, dict) else raw_data
     if isinstance(records, dict):
@@ -262,7 +254,6 @@ def normalize_moenv_pm25(raw_data: dict[str, Any] | list[Any], dataset_id: str) 
 
 
 def extract_element_value(values: list[dict[str, Any]]) -> dict[str, str]:
-    """Helper to extract values from ElementValue list of dicts."""
     if not values or not isinstance(values, list):
         return {}
     item = values[0]
@@ -272,11 +263,6 @@ def extract_element_value(values: list[dict[str, Any]]) -> dict[str, str]:
 
 
 def normalize_f_d0047_091(raw_data: dict[str, Any], dataset_id: str) -> list[dict[str, Any]]:
-    """Normalize CWA township weekly forecast dataset F-D0047-091/F-D0047-093.
-
-    The CWA structure is nested by locations and weather elements. This flattens
-    each location/time period into one record.
-    """
     records: list[dict[str, Any]] = []
     fetched_at = now_iso()
     locations = raw_data.get("records", {}).get("Locations", raw_data.get("records", {}).get("locations", []))
