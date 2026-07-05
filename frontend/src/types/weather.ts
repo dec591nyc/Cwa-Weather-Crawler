@@ -19,6 +19,7 @@ export interface ForecastProperties {
   fetched_at: string;
   observed_at?: string | null;
   rainfall?: number | null;
+  rainfall_10min?: number | null;
   rainfall_1h?: number | null;
   rainfall_today?: number | null;
   rainfall_24h?: number | null;
@@ -32,7 +33,7 @@ export interface ForecastProperties {
 
 export type ObservationMetric =
   | "temperature"
-  | "rainfall_1h"
+  | "rainfall_10min"
   | "rainfall_today"
   | "humidity"
   | "wind_speed"
@@ -92,6 +93,7 @@ export interface CountySummary {
   pm25_station_count: number;
   temperature: NumericStats;
   rainfall: NumericStats;
+  rainfall_10min: NumericStats;
   rainfall_1h: NumericStats;
   rainfall_today: NumericStats;
   humidity: NumericStats;
