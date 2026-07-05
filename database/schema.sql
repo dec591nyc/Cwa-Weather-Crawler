@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS weather_observations (
     observed_at TEXT,
     temperature REAL,
     rainfall REAL,
+    rainfall_10min REAL,
     rainfall_1h REAL,
     rainfall_today REAL,
     wind_speed REAL,
