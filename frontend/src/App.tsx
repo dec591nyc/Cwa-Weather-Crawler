@@ -217,7 +217,7 @@ export const App: React.FC = () => {
           <span className="header-logo" aria-hidden="true">CWA</span>
           <div>
             <h1 className="header-title">台灣即時氣象與空品觀測</h1>
-            <p className="header-subtitle">CWA 觀測、環境部 PM2.5、OSM 地圖底圖</p>
+            <p className="header-subtitle">CWA 觀測、環境部 PM2.5、OSM / Windy 地圖底圖</p>
             <div className="brand-strip" aria-label="資料與地圖服務">
               <span className="brand-badge brand-cwa">CWA</span>
               <span className="brand-badge brand-moenv">MOENV</span>
@@ -306,57 +306,54 @@ export const App: React.FC = () => {
             <span>{error ? "API 連線異常" : "系統正常"}</span>
           </div>
         </div>
-
       </header>
 
-      {activePage === "windy" ? (
-        <WindyMapPage />
-      ) : (
-        <main className="app-container">
-          <section className="map-workspace" aria-label="台灣即時氣象地圖">
-            <div className="map-frame">
-              {loading ? (
-                <div className="map-loading-state">
-                  <div className="map-loading-stack">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="spin-icon">
-                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                    </svg>
-                    <div>正在載入地圖與最新觀測資料...</div>
-                  </div>
+      <main className="app-container">
+        <section className="map-workspace" aria-label="台灣即時氣象地圖">
+          <div className="map-frame">
+            {activePage === "windy" ? (
+              <WindyMapPage />
+            ) : loading ? (
+              <div className="map-loading-state">
+                <div className="map-loading-stack">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="spin-icon">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                  </svg>
+                  <div>正在載入地圖與最新觀測資料...</div>
                 </div>
-              ) : (
-                <>
-                  <MapLibreMap
-                    features={features}
-                    pm25Observations={pm25Observations}
-                    selectedCounty={selectedCounty}
-                    activeMetric={activeMetric}
-                    metricMin={metricMin}
-                  />
-                  <Legend metric={activeMetric} />
-                </>
-              )}
-            </div>
-          </section>
+              </div>
+            ) : (
+              <>
+                <MapLibreMap
+                  features={features}
+                  pm25Observations={pm25Observations}
+                  selectedCounty={selectedCounty}
+                  activeMetric={activeMetric}
+                  metricMin={metricMin}
+                />
+                <Legend metric={activeMetric} />
+              </>
+            )}
+          </div>
+        </section>
 
-          <LayerControl
-            activeMetric={activeMetric}
-            onMetricChange={handleMetricChange}
-            metricMin={metricMin}
-            onMetricMinChange={handleMetricMinChange}
-          />
+        <LayerControl
+          activeMetric={activeMetric}
+          onMetricChange={handleMetricChange}
+          metricMin={metricMin}
+          onMetricMinChange={handleMetricMinChange}
+        />
 
-          <CountySummaryPanel
-            summaries={countySummaries}
-            counties={counties}
-            features={features}
-            pm25Observations={pm25Observations}
-            selectedCounty={selectedCounty}
-            onCountySelect={setSelectedCounty}
-            activeMetric={activeMetric}
-          />
-        </main>
-      )}
+        <CountySummaryPanel
+          summaries={countySummaries}
+          counties={counties}
+          features={features}
+          pm25Observations={pm25Observations}
+          selectedCounty={selectedCounty}
+          onCountySelect={setSelectedCounty}
+          activeMetric={activeMetric}
+        />
+      </main>
     </>
   );
 };
