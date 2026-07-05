@@ -2,9 +2,9 @@ import React, { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import {
   formatMetricValue,
+  getAirQualityMetricValue,
   getMapLibreColorExpression,
   getMetricColor,
-  getPm25MetricValue,
   getWeatherMetricValue,
   metricConfigs,
 } from "../lib/colorScale.ts";
@@ -54,7 +54,7 @@ function buildObservationFeatures(state: ObservationState): GeoJSON.FeatureColle
       .filter((obs) => obs.lat !== null && obs.lon !== null)
       .filter((obs) => !state.selectedCounty || obs.county === state.selectedCounty)
       .map((obs) => {
-        const value = getPm25MetricValue(obs);
+        const value = getAirQualityMetricValue(obs, state.activeMetric);
         return { obs, value };
       })
       .filter(({ value }) => value !== null && value >= state.metricMin)
@@ -76,8 +76,18 @@ function buildObservationFeatures(state: ObservationState): GeoJSON.FeatureColle
           metricUnit: config.unit,
           observed_at: obs.observed_at,
           fetched_at: obs.fetched_at,
+          aqi: obs.aqi,
+          status: obs.status,
+          pollutant: obs.pollutant,
           pm25: obs.pm25,
           pm25_avg: obs.pm25_avg,
+          pm10: obs.pm10,
+          pm10_avg: obs.pm10_avg,
+          o3: obs.o3,
+          o3_8hr: obs.o3_8hr,
+          co: obs.co,
+          no2: obs.no2,
+          so2: obs.so2,
         },
       }));
 
@@ -120,18 +130,25 @@ function popupHtml(props: Record<string, any>): string {
           <div class="popup-station-name">${props.station_name || "-"}</div>
           <div class="popup-location-sub">${props.county || ""} · ${sourceLabel}</div>
         </div>
-        <div class="popup-metric-large">${props.displayValue || "-"}</div>
+        <div class="popup-metric-large">${props.metricLabel || "AQI"} ${props.displayValue || "-"}</div>
         <div class="popup-grid">
+          <span class="popup-label">AQI</span>
+          <span class="popup-value">${props.aqi ?? "-"}</span>
+          <span class="popup-label">狀態</span>
+          <span class="popup-value">${props.status ?? "-"}</span>
           <span class="popup-label">PM2.5</span>
           <span class="popup-value">${props.pm25 ?? "-"}</span>
-          <span class="popup-label">PM2.5 平均</span>
-          <span class="popup-value">${props.pm25_avg ?? "-"}</span>
+          <span class="popup-label">PM10</span>
+          <span class="popup-value">${props.pm10 ?? "-"}</span>
+          <span class="popup-label">O3 8hr</span>
+          <span class="popup-value">${props.o3_8hr ?? "-"}</span>
         </div>
         <div class="popup-time">觀測時間: ${observedText}</div>
       </div>
     `;
   }
 
+  const visibilityText = props.visibility_description || (props.visibility_km ? String(props.visibility_km) + " km" : "-");
   return `
     <div class="popup-container">
       <div class="popup-header">
@@ -142,14 +159,16 @@ function popupHtml(props: Record<string, any>): string {
       <div class="popup-grid">
         <span class="popup-label">氣溫</span>
         <span class="popup-value">${props.temperature ?? "-"} °C</span>
-        <span class="popup-label">降水量</span>
+        <span class="popup-label">即時降水</span>
         <span class="popup-value">${props.rainfall ?? "-"} mm</span>
+        <span class="popup-label">24h累積雨量</span>
+        <span class="popup-value">${props.rainfall_24h ?? "-"} mm</span>
         <span class="popup-label">濕度</span>
         <span class="popup-value">${props.humidity ?? "-"}%</span>
         <span class="popup-label">風速</span>
         <span class="popup-value">${props.wind_speed ?? "-"} m/s</span>
-        <span class="popup-label">風向</span>
-        <span class="popup-value">${props.wind_direction ?? "-"}</span>
+        <span class="popup-label">能見度</span>
+        <span class="popup-value">${visibilityText}</span>
       </div>
       <div class="popup-time">觀測時間: ${observedText}</div>
     </div>
