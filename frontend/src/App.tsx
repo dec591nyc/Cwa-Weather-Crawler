@@ -17,7 +17,7 @@ import type {
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
-const GITHUB_URL = "https://github.com/dec591nyc/Cwa-Weather-Crawler";
+const GITHUB_URL = "https://github.com/dec591nyc/CWA-GeoMap_Monitor";
 const COUNTY_SORT_ORDER = [
   "基隆市",
   "臺北市",
@@ -102,6 +102,7 @@ export const App: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
 
   const metricMin = metricMinByMetric[activeMetric];
   const latestObservedAt = useMemo(
@@ -168,8 +169,32 @@ export const App: React.FC = () => {
     }
   };
 
+  const syncLatestObservations = async () => {
+    try {
+      setSyncWarning(null);
+      const refreshRes = await fetch(apiUrl("/api/refresh/observations"), { method: "POST" });
+      if (!refreshRes.ok) {
+        throw new Error("Observation auto-sync failed");
+      }
+    } catch (err) {
+      console.warn(err);
+      setSyncWarning("自動同步失敗，已顯示上一批資料");
+    }
+  };
+
+  const loadInitialData = async () => {
+    setLoading(true);
+    setRefreshing(true);
+    try {
+      await syncLatestObservations();
+      await fetchData();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    void fetchData();
+    void loadInitialData();
   }, []);
 
   useEffect(() => {
@@ -177,29 +202,6 @@ export const App: React.FC = () => {
       setWindyMounted(true);
     }
   }, [activePage]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const [weatherRes, pm25Res] = await Promise.all([
-        fetch(apiUrl("/api/refresh/weather"), { method: "POST" }),
-        fetch(apiUrl("/api/refresh/pm25"), { method: "POST" }),
-      ]);
-
-      if (!weatherRes.ok) {
-        throw new Error("CWA observation sync failed. Backend server error.");
-      }
-      if (!pm25Res.ok) {
-        console.warn("PM2.5 sync failed. Weather observations were refreshed.");
-      }
-      await fetchData();
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message || "Failed to sync latest observations.");
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const handleMetricMinChange = (value: number) => {
     setMetricMinByMetric((current) => ({
@@ -259,17 +261,10 @@ export const App: React.FC = () => {
             </div>
             <div className="api-meta-control-panel">
               <span className="api-label">API 數據來源</span>
-              <button
-                className={`header-refresh-btn ${refreshing ? "loading" : ""}`}
-                onClick={handleRefresh}
-                disabled={refreshing}
-                type="button"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                </svg>
-                {refreshing ? "同步中" : "更新觀測資料"}
-              </button>
+              <span className="header-status" role="status" aria-live="polite">
+                <span className={`status-dot ${syncWarning ? "stale" : ""}`} />
+                <span>{refreshing ? "自動同步中" : syncWarning ? "顯示上一批資料" : "已自動同步"}</span>
+              </span>
             </div>
             <div className="api-meta-source-panel">
               <div className="api-source-stack">
@@ -320,8 +315,8 @@ export const App: React.FC = () => {
             <span>GitHub</span>
           </a>
           <div className="header-status">
-            <span className={`status-dot ${error ? "stale" : ""}`} />
-            <span>{error ? "API 連線異常" : "系統正常"}</span>
+            <span className={`status-dot ${error || syncWarning ? "stale" : ""}`} />
+            <span>{error ? "API 連線異常" : syncWarning ? "同步警告" : "系統正常"}</span>
           </div>
         </div>
       </header>
@@ -336,7 +331,7 @@ export const App: React.FC = () => {
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="spin-icon">
                       <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
                     </svg>
-                    <div>正在載入地圖與最新觀測資料...</div>
+                    <div>正在同步並載入最新觀測資料...</div>
                   </div>
                 </div>
               ) : (
