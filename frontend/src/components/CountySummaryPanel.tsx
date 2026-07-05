@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import {
   formatMetricValue,
-  getPm25MetricValue,
+  getAirQualityMetricValue,
   getWeatherMetricValue,
   metricConfigs,
 } from "../lib/colorScale.ts";
@@ -46,17 +46,19 @@ function buildMetricPoints(
   metric: ObservationMetric,
   selectedCounty: string
 ): StationMetricPoint[] {
-  if (metric === "pm25") {
+  const config = metricConfigs[metric];
+
+  if (config.source === "airQuality") {
     return pm25Observations
       .filter((obs) => !selectedCounty || obs.county === selectedCounty)
-      .map((obs) => ({ obs, value: getPm25MetricValue(obs) }))
+      .map((obs) => ({ obs, value: getAirQualityMetricValue(obs, metric) }))
       .filter((item): item is { obs: Pm25Observation; value: number } => item.value !== null)
-      .map(({ obs }) => ({
-        key: `pm25-${obs.station_id || obs.station_name}`,
+      .map(({ obs, value }) => ({
+        key: `air-${metric}-${obs.station_id || obs.station_name}`,
         stationName: obs.station_name || "-",
         county: obs.county || "",
         town: "",
-        value: getPm25MetricValue(obs) as number,
+        value,
         observedAt: obs.observed_at,
       }));
   }
@@ -66,7 +68,7 @@ function buildMetricPoints(
     .map((feature) => ({ feature, value: getWeatherMetricValue(feature.properties, metric) }))
     .filter((item): item is { feature: GeoJsonFeature; value: number } => item.value !== null)
     .map(({ feature, value }) => ({
-      key: `weather-${feature.properties.station_id}`,
+      key: `weather-${metric}-${feature.properties.station_id}`,
       stationName: feature.properties.station_name || "-",
       county: feature.properties.county || "",
       town: feature.properties.town || "",
