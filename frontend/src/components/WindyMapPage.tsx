@@ -1,9 +1,25 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  formatMetricValue,
+  getMetricColor,
+  getPm25MetricValue,
+  getWeatherMetricValue,
+  metricConfigs,
+} from "../lib/colorScale.ts";
+import type { GeoJsonFeature, ObservationMetric, Pm25Observation } from "../types/weather.ts";
 
 type WindyStatus = "idle" | "loading" | "ready" | "error";
 
 interface WindyApi {
   map: any;
+}
+
+interface WindyMapPageProps {
+  features: GeoJsonFeature[];
+  pm25Observations: Pm25Observation[];
+  selectedCounty: string;
+  activeMetric: ObservationMetric;
+  metricMin: number;
 }
 
 declare global {
@@ -12,12 +28,9 @@ declare global {
     L?: any;
     __leafletLoaderPromise?: Promise<void>;
     __windyLoaderPromise?: Promise<void>;
-    __windyApi?: WindyApi;
   }
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
 const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.4.0/dist/leaflet.css";
 const LEAFLET_SCRIPT_URL = "https://unpkg.com/leaflet@1.4.0/dist/leaflet.js";
 const WINDY_SCRIPT_URL = "https://api.windy.com/assets/map-forecast/libBoot.js";
@@ -122,30 +135,119 @@ async function loadWindyScript(): Promise<void> {
   return window.__windyLoaderPromise;
 }
 
-function weatherColor(temp: number | null): string {
-  if (temp === null || Number.isNaN(temp)) return "#64748b";
-  if (temp >= 32) return "#dc2626";
-  if (temp >= 28) return "#f97316";
-  if (temp >= 24) return "#facc15";
-  if (temp >= 18) return "#22c55e";
-  return "#2563eb";
+function observedText(value: string | null | undefined): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
-function pm25Color(value: number | null): string {
-  if (value === null || Number.isNaN(value)) return "#64748b";
-  if (value > 35) return "#dc2626";
-  if (value > 25) return "#f97316";
-  if (value > 15) return "#facc15";
-  return "#16a34a";
-}
-
-export const WindyMapPage: React.FC = () => {
+export const WindyMapPage: React.FC<WindyMapPageProps> = ({
+  features,
+  pm25Observations,
+  selectedCounty,
+  activeMetric,
+  metricMin,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const markerLayerRef = useRef<any>(null);
+  const windyApiRef = useRef<WindyApi | null>(null);
   const [status, setStatus] = useState<WindyStatus>("idle");
   const [message, setMessage] = useState<string>("");
   const [weatherCount, setWeatherCount] = useState<number>(0);
   const [pm25Count, setPm25Count] = useState<number>(0);
+
+  const renderMarkers = useCallback((api: WindyApi) => {
+    const L = window.L;
+    if (!L || !api.map) {
+      setStatus("error");
+      setMessage("Leaflet map is unavailable from Windy");
+      return;
+    }
+
+    if (markerLayerRef.current) {
+      markerLayerRef.current.remove();
+    }
+
+    const layer = L.layerGroup().addTo(api.map);
+    markerLayerRef.current = layer;
+    const config = metricConfigs[activeMetric];
+
+    if (config.source === "airQuality") {
+      const rows = pm25Observations
+        .filter((obs) => obs.lat !== null && obs.lon !== null)
+        .filter((obs) => !selectedCounty || obs.county === selectedCounty)
+        .map((obs) => ({ obs, value: getPm25MetricValue(obs) }))
+        .filter(({ value }) => value === null || value >= metricMin);
+
+      setWeatherCount(0);
+      setPm25Count(rows.length);
+
+      for (const { obs, value } of rows) {
+        const marker = L.circleMarker([obs.lat, obs.lon], {
+          radius: 7,
+          color: "#111827",
+          weight: 1.2,
+          fillColor: getMetricColor(activeMetric, value),
+          fillOpacity: 0.82,
+        });
+
+        marker.bindPopup(`
+          <div class="windy-popup">
+            <strong>${obs.station_name || "-"}</strong>
+            <span>${obs.county || ""} · 環境部空品觀測</span>
+            <div class="popup-metric-large">${config.label} ${formatMetricValue(activeMetric, value)}</div>
+            <dl>
+              <dt>PM2.5</dt><dd>${obs.pm25 ?? "-"}</dd>
+              <dt>PM2.5 平均</dt><dd>${obs.pm25_avg ?? "-"}</dd>
+              <dt>時間</dt><dd>${observedText(obs.observed_at || obs.fetched_at)}</dd>
+            </dl>
+          </div>
+        `);
+        marker.addTo(layer);
+      }
+      return;
+    }
+
+    const rows = features
+      .filter((feature) => !selectedCounty || feature.properties.county === selectedCounty)
+      .map((feature) => ({
+        feature,
+        value: getWeatherMetricValue(feature.properties, activeMetric),
+      }))
+      .filter(({ value }) => value === null || value >= metricMin);
+
+    setWeatherCount(rows.length);
+    setPm25Count(0);
+
+    for (const { feature, value } of rows) {
+      const [lon, lat] = feature.geometry.coordinates;
+      const props = feature.properties;
+      const marker = L.circleMarker([lat, lon], {
+        radius: 6,
+        color: "#ffffff",
+        weight: 1.3,
+        fillColor: getMetricColor(activeMetric, value),
+        fillOpacity: 0.9,
+      });
+
+      marker.bindPopup(`
+        <div class="windy-popup">
+          <strong>${props.station_name || "-"}</strong>
+          <span>${props.county || ""} ${props.town || ""} · 中央氣象署即時觀測</span>
+          <div class="popup-metric-large">${config.label} ${formatMetricValue(activeMetric, value)}</div>
+          <dl>
+            <dt>氣溫</dt><dd>${props.temperature ?? "-"} °C</dd>
+            <dt>降水量</dt><dd>${props.rainfall ?? "-"} mm</dd>
+            <dt>濕度</dt><dd>${props.humidity ?? "-"}%</dd>
+            <dt>風速</dt><dd>${props.wind_speed ?? "-"} m/s</dd>
+            <dt>時間</dt><dd>${observedText(props.observed_at || props.fetched_at)}</dd>
+          </dl>
+        </div>
+      `);
+      marker.addTo(layer);
+    }
+  }, [activeMetric, features, metricMin, pm25Observations, selectedCounty]);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,27 +265,6 @@ export const WindyMapPage: React.FC = () => {
         await loadWindyScript();
         if (cancelled) return;
 
-        const mountWindy = (api: WindyApi) => {
-          window.__windyApi = api;
-          if (api.map?.setView) {
-            api.map.setView([23.7, 121], 7);
-          }
-          if (api.map?.invalidateSize) {
-            window.setTimeout(() => api.map.invalidateSize(), 200);
-          }
-          setStatus("ready");
-          setMessage("");
-          void renderMarkers(api).catch((error: any) => {
-            setStatus("error");
-            setMessage(error?.message || "Windy markers failed to render");
-          });
-        };
-
-        if (window.__windyApi) {
-          mountWindy(window.__windyApi);
-          return;
-        }
-
         const windyInit = window.windyInit;
         if (!windyInit) {
           throw new Error("Windy init function is unavailable after loader completed");
@@ -197,7 +278,19 @@ export const WindyMapPage: React.FC = () => {
             zoom: 7,
             overlay: "wind",
           },
-          mountWindy
+          (api: WindyApi) => {
+            if (cancelled) return;
+            windyApiRef.current = api;
+            if (api.map?.setView) {
+              api.map.setView([23.7, 121], 7);
+            }
+            if (api.map?.invalidateSize) {
+              window.setTimeout(() => api.map.invalidateSize(), 200);
+            }
+            setStatus("ready");
+            setMessage("");
+            renderMarkers(api);
+          }
         );
       } catch (error: any) {
         setStatus("error");
@@ -209,89 +302,24 @@ export const WindyMapPage: React.FC = () => {
 
     return () => {
       cancelled = true;
+      if (markerLayerRef.current) {
+        markerLayerRef.current.remove();
+        markerLayerRef.current = null;
+      }
+      if (windyApiRef.current?.map?.remove) {
+        windyApiRef.current.map.remove();
+      }
+      windyApiRef.current = null;
     };
   }, []);
 
-  const renderMarkers = async (api: WindyApi) => {
-    const L = window.L;
-    if (!L || !api.map) {
-      setStatus("error");
-      setMessage("Leaflet map is unavailable from Windy");
-      return;
-    }
+  useEffect(() => {
+    if (status !== "ready" || !windyApiRef.current) return;
+    renderMarkers(windyApiRef.current);
+  }, [renderMarkers, status]);
 
-    if (markerLayerRef.current) {
-      markerLayerRef.current.remove();
-    }
-    const layer = L.layerGroup().addTo(api.map);
-    markerLayerRef.current = layer;
-
-    const [weatherRes, pm25Res] = await Promise.all([
-      fetch(apiUrl("/api/weather/stations.geojson")),
-      fetch(apiUrl("/api/pm25/latest")),
-    ]);
-    if (!weatherRes.ok) throw new Error("Failed to load weather stations");
-    if (!pm25Res.ok) throw new Error("Failed to load PM2.5 stations");
-
-    const weatherData = await weatherRes.json();
-    const pm25Data = await pm25Res.json();
-    const weatherFeatures = weatherData.features || [];
-    const pm25Observations = pm25Data.observations || [];
-
-    setWeatherCount(weatherFeatures.length);
-    setPm25Count(pm25Observations.length);
-
-    for (const feature of weatherFeatures) {
-      const [lon, lat] = feature.geometry.coordinates;
-      const props = feature.properties;
-      const temp = props.temperature === null ? null : Number(props.temperature);
-      const marker = L.circleMarker([lat, lon], {
-        radius: 5,
-        color: "#ffffff",
-        weight: 1,
-        fillColor: weatherColor(temp),
-        fillOpacity: 0.9,
-      });
-      marker.bindPopup(`
-        <div class="windy-popup">
-          <strong>${props.station_name || "-"}</strong>
-          <span>${props.county || ""} ${props.town || ""}</span>
-          <dl>
-            <dt>氣溫</dt><dd>${temp === null ? "-" : `${temp.toFixed(1)} °C`}</dd>
-            <dt>降水</dt><dd>${props.rainfall ?? "-"} mm</dd>
-            <dt>風速</dt><dd>${props.wind_speed ?? "-"} m/s</dd>
-            <dt>濕度</dt><dd>${props.humidity ?? "-"}%</dd>
-            <dt>時間</dt><dd>${props.observed_at || "-"}</dd>
-          </dl>
-        </div>
-      `);
-      marker.addTo(layer);
-    }
-
-    for (const obs of pm25Observations) {
-      if (obs.lat === null || obs.lon === null) continue;
-      const pm25 = obs.pm25 === null ? null : Number(obs.pm25);
-      const marker = L.circleMarker([obs.lat, obs.lon], {
-        radius: 7,
-        color: "#111827",
-        weight: 1,
-        fillColor: pm25Color(pm25),
-        fillOpacity: 0.78,
-      });
-      marker.bindPopup(`
-        <div class="windy-popup">
-          <strong>${obs.station_name || "-"}</strong>
-          <span>${obs.county || ""}</span>
-          <dl>
-            <dt>PM2.5</dt><dd>${pm25 === null ? "-" : pm25}</dd>
-            <dt>PM2.5_AVG</dt><dd>${obs.pm25_avg ?? "-"}</dd>
-            <dt>時間</dt><dd>${obs.observed_at || "-"}</dd>
-          </dl>
-        </div>
-      `);
-      marker.addTo(layer);
-    }
-  };
+  const config = metricConfigs[activeMetric];
+  const activeCount = config.source === "airQuality" ? pm25Count : weatherCount;
 
   return (
     <div
@@ -308,7 +336,7 @@ export const WindyMapPage: React.FC = () => {
           <div className={`status-dot ${status === "error" ? "stale" : ""}`} />
           <span>{status === "ready" ? "Windy ready" : status === "loading" ? "Loading Windy" : status}</span>
           {message && <strong>{message}</strong>}
-          <small>CWA {weatherCount} / PM2.5 {pm25Count}</small>
+          <small>{config.label} {activeCount} 筆</small>
         </div>
         <div
           aria-label="Windy visual legend"
@@ -319,7 +347,7 @@ export const WindyMapPage: React.FC = () => {
             zIndex: 1200,
             display: "grid",
             gap: "0.45rem",
-            minWidth: 220,
+            minWidth: 240,
             border: "1px solid rgba(15, 23, 42, 0.16)",
             borderRadius: 8,
             background: "rgba(255, 255, 255, 0.94)",
@@ -329,10 +357,11 @@ export const WindyMapPage: React.FC = () => {
             fontWeight: 800,
           }}
         >
-          <strong style={{ fontSize: "0.88rem" }}>Windy + 測站疊圖</strong>
+          <strong style={{ fontSize: "0.88rem" }}>Windy + {config.label} 疊圖</strong>
           <span>背景：Windy 風場</span>
-          <span>小圓點：CWA 氣象觀測站，顏色代表氣溫</span>
-          <span>大圓點：MOENV PM2.5 測站，顏色代表空品</span>
+          <span>圓點：{config.source === "airQuality" ? "MOENV PM2.5 測站" : "CWA 氣象觀測站"}</span>
+          <span>顏色：依照目前控制面板的「{config.label}」級距</span>
+          <span>門檻：只顯示 ≥ {metricMin}{config.unit}</span>
         </div>
       </div>
     </div>
