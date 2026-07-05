@@ -11,14 +11,32 @@ NUMERIC_OBSERVATION_FIELDS = {
     "altitude_m",
     "temperature",
     "rainfall",
+    "rainfall_10min",
+    "rainfall_1h",
+    "rainfall_3h",
+    "rainfall_6h",
+    "rainfall_12h",
+    "rainfall_24h",
     "wind_speed",
     "wind_direction",
     "humidity",
+    "visibility_km",
     "uv_index",
     "daily_high",
     "daily_low",
+    "aqi",
     "pm25",
     "pm25_avg",
+    "pm10",
+    "pm10_avg",
+    "so2",
+    "co",
+    "co_8hr",
+    "o3",
+    "o3_8hr",
+    "no2",
+    "nox",
+    "no",
 }
 
 
@@ -85,32 +103,36 @@ def latest_pm25_observations(county: str | None = None, limit: int = 1000) -> di
 
 def county_summary() -> dict:
     weather_rows = _latest_rows("weather_observations")
-    pm25_rows = _latest_rows("air_quality_observations")
+    air_quality_rows = _latest_rows("air_quality_observations")
     counties_set = {
         row.get("county")
-        for row in weather_rows + pm25_rows
+        for row in weather_rows + air_quality_rows
         if row.get("county")
     }
 
     summaries = []
     for county in sorted(counties_set):
         county_weather = [row for row in weather_rows if row.get("county") == county]
-        county_pm25 = [row for row in pm25_rows if row.get("county") == county]
+        county_air = [row for row in air_quality_rows if row.get("county") == county]
         summaries.append(
             {
                 "county": county,
                 "weather_station_count": len(county_weather),
-                "pm25_station_count": len(county_pm25),
+                "pm25_station_count": len(county_air),
                 "temperature": _stats([row.get("temperature") for row in county_weather]),
                 "rainfall": _stats([row.get("rainfall") for row in county_weather]),
+                "rainfall_24h": _stats([row.get("rainfall_24h") for row in county_weather]),
                 "wind_speed": _stats([row.get("wind_speed") for row in county_weather]),
                 "wind_direction_avg": _circular_mean_degrees(
                     [row.get("wind_direction") for row in county_weather]
                 ),
                 "humidity": _stats([row.get("humidity") for row in county_weather]),
+                "visibility_km": _stats([row.get("visibility_km") for row in county_weather]),
                 "uv_index": _stats([row.get("uv_index") for row in county_weather]),
-                "pm25": _stats([row.get("pm25") for row in county_pm25]),
-                "pm25_avg": _stats([row.get("pm25_avg") for row in county_pm25]),
+                "aqi": _stats([row.get("aqi") for row in county_air]),
+                "pm25": _stats([row.get("pm25") for row in county_air]),
+                "pm25_avg": _stats([row.get("pm25_avg") for row in county_air]),
+                "pm10": _stats([row.get("pm10") for row in county_air]),
             }
         )
     return {"count": len(summaries), "summaries": summaries}
@@ -143,40 +165,6 @@ def forecast_history(county: str | None = None, limit: int = 500) -> dict:
     with get_connection() as conn:
         rows = conn.execute(sql, params).fetchall()
     return {"count": len(rows), "forecasts": [dict(row) for row in rows]}
-
-
-def temperature_geojson(county: str | None = None) -> dict:
-    sql = """
-        SELECT s.lon, s.lat, s.station_name, f.*
-        FROM (
-            SELECT *, ROW_NUMBER() OVER(PARTITION BY station_id ORDER BY forecast_start ASC) as rn
-            FROM forecasts
-            WHERE fetched_at = (SELECT MAX(fetched_at) FROM forecasts)
-        ) f
-        LEFT JOIN stations s ON s.station_id = f.station_id
-        WHERE f.rn = 1 AND s.lat IS NOT NULL AND s.lon IS NOT NULL
-    """
-    params: list[object] = []
-    if county:
-        sql += " AND f.county = ?"
-        params.append(county)
-
-    with get_connection() as conn:
-        rows = conn.execute(sql, params).fetchall()
-
-    features = []
-    for row in rows:
-        data = dict(row)
-        lon = data.pop("lon")
-        lat = data.pop("lat")
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                "properties": data,
-            }
-        )
-    return {"type": "FeatureCollection", "features": features}
 
 
 def _latest_rows(table: str, county: str | None = None) -> list[dict]:
