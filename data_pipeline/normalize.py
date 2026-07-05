@@ -87,14 +87,10 @@ def parse_coordinates(geo_info: dict[str, Any] | None, station: dict[str, Any]) 
 def extract_weather_value(weather_element: Any, *names: str) -> Any:
     if not weather_element:
         return None
+    wanted = {name.lower() for name in names}
     if isinstance(weather_element, dict):
-        value = get_first(weather_element, *names)
-        if isinstance(value, dict):
-            nested = get_first(value, "value", "Value", "Precipitation")
-            return nested if nested is not None else value
-        return value
+        return get_first(weather_element, *names)
     if isinstance(weather_element, list):
-        wanted = {name.lower() for name in names}
         for item in weather_element:
             if not isinstance(item, dict):
                 continue
@@ -116,21 +112,14 @@ def extract_rainfall_value(rainfall_element: Any, weather_element: Any, *names: 
     if value is None:
         value = extract_weather_value(weather_element, *names)
     if isinstance(value, dict):
-        value = get_first(value, "Precipitation", "value", "Value")
+        value = get_first(value, "Precipitation", "precipitation", "value", "Value")
     return parse_float(value)
 
 
 def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> list[dict[str, Any]]:
-    """Normalize CWA station observation datasets such as O-A0003-001/O-A0001-001."""
     fetched_at = now_iso()
     records = raw_data.get("records", {})
-    stations = (
-        records.get("Station")
-        or records.get("station")
-        or records.get("Stations")
-        or records.get("stations")
-        or []
-    )
+    stations = records.get("Station") or records.get("station") or records.get("Stations") or records.get("stations") or []
     if isinstance(stations, dict):
         stations = [stations]
 
@@ -145,19 +134,23 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
         weather_element = get_first(station, "WeatherElement", "weatherElement")
         rainfall_element = get_first(station, "RainfallElement", "rainfallElement")
         obs_time = get_first(station, "ObsTime", "obsTime")
-        if isinstance(obs_time, dict):
-            observed_at = get_first(obs_time, "DateTime", "dateTime", "DataTime", "dataTime")
-        else:
-            observed_at = obs_time
+        observed_at = get_first(obs_time, "DateTime", "dateTime", "DataTime", "dataTime") if isinstance(obs_time, dict) else obs_time
 
-        now_value = extract_weather_value(weather_element, "Now")
-        rainfall = None
-        if isinstance(now_value, dict):
-            rainfall = parse_float(get_first(now_value, "Precipitation", "precipitation", "Value", "value"))
-        else:
-            rainfall = parse_float(now_value)
-        if rainfall is None:
-            rainfall = extract_rainfall_value(rainfall_element, weather_element, "Now", "Precipitation")
+        rainfall_now = extract_rainfall_value(rainfall_element, weather_element, "Now", "Precipitation")
+        rainfall_10min = extract_rainfall_value(rainfall_element, weather_element, "Past10Min", "Past10min", "Past10Minutes", "Past15Min", "Past15min", "Past15Minutes")
+        rainfall_1h = extract_rainfall_value(rainfall_element, weather_element, "Past1hr", "Past1Hour", "Past1Hr", "HourRainfall")
+        rainfall_today = extract_rainfall_value(
+            rainfall_element,
+            weather_element,
+            "DailyRainfall",
+            "TodayRainfall",
+            "RainfallToday",
+            "Today",
+            "DayRainfall",
+            "AccumulatedPrecipitation",
+            "AccumulatedRainfall",
+            "DailyAccumulatedPrecipitation",
+        )
 
         visibility_raw = extract_weather_value(weather_element, "Visibility", "VisibilityDescription")
         lat, lon = parse_coordinates(geo_info, station)
@@ -178,9 +171,10 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
                 "altitude_m": parse_float(get_first(geo_info, "StationAltitude", "stationAltitude")),
                 "observed_at": str(observed_at) if observed_at else None,
                 "temperature": parse_float(extract_weather_value(weather_element, "AirTemperature", "Temperature")),
-                "rainfall": rainfall,
-                "rainfall_1h": extract_rainfall_value(rainfall_element, weather_element, "Past1hr", "Past1Hour", "Past1Hr", "HourRainfall"),
-                "rainfall_today": extract_rainfall_value(rainfall_element, weather_element, "DailyRainfall", "TodayRainfall", "Today", "AccumulatedPrecipitation", "AccumulatedRainfall"),
+                "rainfall": rainfall_now,
+                "rainfall_10min": rainfall_10min,
+                "rainfall_1h": rainfall_1h,
+                "rainfall_today": rainfall_today,
                 "wind_speed": parse_float(extract_weather_value(weather_element, "WindSpeed")),
                 "wind_direction": parse_float(extract_weather_value(weather_element, "WindDirection")),
                 "humidity": parse_float(extract_weather_value(weather_element, "RelativeHumidity", "Humidity")),
@@ -199,7 +193,6 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
 
 
 def normalize_moenv_pm25(raw_data: dict[str, Any] | list[Any], dataset_id: str) -> list[dict[str, Any]]:
-    """Normalize MOENV air-quality records from aqx_p_432."""
     fetched_at = now_iso()
     records = raw_data.get("records", []) if isinstance(raw_data, dict) else raw_data
     if isinstance(records, dict):
@@ -213,15 +206,7 @@ def normalize_moenv_pm25(raw_data: dict[str, Any] | list[Any], dataset_id: str) 
         station_id = get_first(record, "siteid", "site_id", "SiteId", "station_id")
         if not station_name and not station_id:
             continue
-        observed_at = get_first(
-            record,
-            "publishtime",
-            "publish_time",
-            "datacreationdate",
-            "DataCreationDate",
-            "monitordate",
-            "monitor_time",
-        )
+        observed_at = get_first(record, "publishtime", "publish_time", "datacreationdate", "DataCreationDate", "monitordate", "monitor_time")
         normalized.append(
             {
                 "station_id": str(station_id or station_name),
