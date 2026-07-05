@@ -6,7 +6,6 @@ from api.services.observation_service import (
     latest_weather_observations,
     list_counties,
     list_stations,
-    temperature_geojson,
     weather_stations_geojson,
 )
 
@@ -34,8 +33,3 @@ def latest_weather(
 @router.get("/weather/stations.geojson")
 def stations_geojson(county: str | None = None):
     return weather_stations_geojson(county)
-
-
-@router.get("/temperature/geojson")
-def temperature(county: str | None = None):
-    return temperature_geojson(county)
