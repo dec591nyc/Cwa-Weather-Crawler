@@ -20,6 +20,7 @@ interface WindyMapPageProps {
   selectedCounty: string;
   activeMetric: ObservationMetric;
   metricMin: number;
+  isActive: boolean;
 }
 
 declare global {
@@ -148,6 +149,7 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
   selectedCounty,
   activeMetric,
   metricMin,
+  isActive,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const markerLayerRef = useRef<any>(null);
@@ -317,6 +319,14 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
     if (status !== "ready" || !windyApiRef.current) return;
     renderMarkers(windyApiRef.current);
   }, [renderMarkers, status]);
+
+  useEffect(() => {
+    if (!isActive || status !== "ready" || !windyApiRef.current?.map?.invalidateSize) return;
+    const timeoutId = window.setTimeout(() => {
+      windyApiRef.current?.map?.invalidateSize();
+    }, 120);
+    return () => window.clearTimeout(timeoutId);
+  }, [isActive, status]);
 
   const config = metricConfigs[activeMetric];
   const activeCount = config.source === "airQuality" ? pm25Count : weatherCount;
