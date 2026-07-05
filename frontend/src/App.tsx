@@ -6,6 +6,8 @@ import { CountySummaryPanel } from "./components/CountySummaryPanel.tsx";
 import { WindyMapPage } from "./components/WindyMapPage.tsx";
 import { metricConfigs } from "./lib/colorScale.ts";
 import type {
+  ApiSource,
+  ApiSourcesResponse,
   CountySummary,
   CountySummaryResponse,
   GeoJsonCollection,
@@ -87,14 +89,18 @@ export const App: React.FC = () => {
   const [pm25Observations, setPm25Observations] = useState<Pm25Observation[]>([]);
   const [counties, setCounties] = useState<string[]>([]);
   const [countySummaries, setCountySummaries] = useState<CountySummary[]>([]);
+  const [apiSources, setApiSources] = useState<ApiSource[]>([]);
 
   const [selectedCounty, setSelectedCounty] = useState<string>("");
   const [activeMetric, setActiveMetric] = useState<ObservationMetric>("temperature");
   const [metricMinByMetric, setMetricMinByMetric] = useState<Record<ObservationMetric, number>>({
     temperature: 0,
     rainfall: 0,
+    rainfall_24h: 0,
     humidity: 0,
     wind_speed: 0,
+    visibility_km: 0,
+    aqi: 0,
     pm25: 0,
   });
 
@@ -113,34 +119,37 @@ export const App: React.FC = () => {
       ]),
     [features, pm25Observations]
   );
-  const sourceDatasets = useMemo(() => {
+
+  const visibleApiSources = useMemo(() => {
+    const active = apiSources.filter((source) => source.status === "active");
+    if (active.length) return active;
     const cwa = Array.from(
       new Set(features.map((feature) => feature.properties.source_dataset).filter(Boolean))
     );
     const moenv = Array.from(
       new Set(pm25Observations.map((obs) => obs.source_dataset).filter(Boolean))
     );
-
-    return {
-      cwa: cwa.length ? cwa.join(", ") : "O-A0003-001",
-      moenv: moenv.length ? moenv.join(", ") : "aqx_p_432",
-    };
-  }, [features, pm25Observations]);
+    return [
+      ...cwa.map((datasetId) => ({ provider: "CWA", dataset_id: datasetId, title: "即時氣象觀測" } as ApiSource)),
+      ...moenv.map((datasetId) => ({ provider: "MOENV", dataset_id: datasetId, title: "空氣品質觀測" } as ApiSource)),
+    ];
+  }, [apiSources, features, pm25Observations]);
 
   const fetchData = async () => {
     try {
       setError(null);
 
-      const [countiesRes, geojsonRes, pm25Res, healthRes] = await Promise.all([
+      const [countiesRes, geojsonRes, pm25Res, healthRes, sourcesRes] = await Promise.all([
         fetch(apiUrl("/api/summary/counties")),
         fetch(apiUrl("/api/weather/stations.geojson")),
         fetch(apiUrl("/api/pm25/latest")),
         fetch(apiUrl("/api/health")),
+        fetch(apiUrl("/api/data-sources")),
       ]);
 
       if (!countiesRes.ok) throw new Error("Failed to load county summaries");
       if (!geojsonRes.ok) throw new Error("Failed to load CWA observations");
-      if (!pm25Res.ok) throw new Error("Failed to load PM2.5 observations");
+      if (!pm25Res.ok) throw new Error("Failed to load air-quality observations");
 
       const countiesData: CountySummaryResponse = await countiesRes.json();
       const summaries = countiesData.summaries || [];
@@ -160,6 +169,11 @@ export const App: React.FC = () => {
         if (healthData.latest_fetch) {
           setLastUpdate(healthData.latest_fetch.fetched_at);
         }
+      }
+
+      if (sourcesRes.ok) {
+        const sourceData: ApiSourcesResponse = await sourcesRes.json();
+        setApiSources(sourceData.sources || []);
       }
     } catch (err: any) {
       console.error(err);
@@ -247,7 +261,7 @@ export const App: React.FC = () => {
           <span className="header-logo" aria-hidden="true">CWA</span>
           <div>
             <h1 className="header-title">台灣即時氣象與空品觀測</h1>
-            <p className="header-subtitle">CWA 觀測、環境部 PM2.5、OSM / Windy 地圖底圖</p>
+            <p className="header-subtitle">CWA 觀測、環境部 AQI / PM2.5、OSM / Windy 地圖底圖</p>
             <div className="brand-strip" aria-label="資料與地圖服務">
               <span className="brand-badge brand-cwa">CWA</span>
               <span className="brand-badge brand-moenv">MOENV</span>
@@ -285,14 +299,12 @@ export const App: React.FC = () => {
             </div>
             <div className="api-meta-source-panel">
               <div className="api-source-stack">
-                <div className="api-source-row">
-                  <span className="api-source-name">中央氣象署</span>
-                  <strong>{sourceDatasets.cwa}</strong>
-                </div>
-                <div className="api-source-row">
-                  <span className="api-source-name">環境部</span>
-                  <strong>{sourceDatasets.moenv}</strong>
-                </div>
+                {visibleApiSources.map((source) => (
+                  <div className="api-source-row" key={`${source.provider}-${source.dataset_id}`}>
+                    <span className="api-source-name">{source.provider}</span>
+                    <strong>{source.dataset_id}</strong>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
