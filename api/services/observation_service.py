@@ -6,7 +6,7 @@ from database.connection import get_connection
 
 INVALID_NUMERIC_VALUES = {-99.0, -990.0, -999.0, -9999.0}
 NUMERIC_OBSERVATION_FIELDS = {
-    "lat", "lon", "altitude_m", "temperature", "rainfall", "rainfall_1h", "rainfall_today",
+    "lat", "lon", "altitude_m", "temperature", "rainfall", "rainfall_10min", "rainfall_1h", "rainfall_today",
     "wind_speed", "wind_direction", "humidity", "visibility_km", "uv_index", "daily_high", "daily_low",
     "aqi", "pm25", "pm25_avg", "pm10", "pm10_avg", "so2", "co", "co_8hr", "o3", "o3_8hr", "no2", "nox", "no",
 }
@@ -71,6 +71,7 @@ def county_summary() -> dict:
                 "pm25_station_count": len(county_air),
                 "temperature": _stats([row.get("temperature") for row in county_weather]),
                 "rainfall": _stats([row.get("rainfall") for row in county_weather]),
+                "rainfall_10min": _stats([row.get("rainfall_10min") for row in county_weather]),
                 "rainfall_1h": _stats([row.get("rainfall_1h") for row in county_weather]),
                 "rainfall_today": _stats([row.get("rainfall_today") for row in county_weather]),
                 "wind_speed": _stats([row.get("wind_speed") for row in county_weather]),
@@ -121,11 +122,12 @@ def _latest_rows(table: str, county: str | None = None) -> list[dict]:
     allowed_tables = {"weather_observations", "air_quality_observations"}
     if table not in allowed_tables:
         raise ValueError("Unsupported table: " + table)
-    sql = "SELECT * FROM " + table + " WHERE fetched_at = (SELECT MAX(fetched_at) FROM " + table + ")"
+    sql = "SELECT * FROM " + table + " WHERE id IN (SELECT MAX(id) FROM " + table + " WHERE station_id IS NOT NULL GROUP BY source_dataset, station_id)"
     params: list[object] = []
     if county:
         sql += " AND county = ?"
         params.append(county)
+    sql += " ORDER BY county, station_name"
     with get_connection() as conn:
         return [_sanitize_observation_row(dict(row)) for row in conn.execute(sql, params).fetchall()]
 
