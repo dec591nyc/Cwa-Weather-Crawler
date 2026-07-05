@@ -1,27 +1,30 @@
 # API 數據來源與可用性盤點
 
-本文件整理目前專案使用與候選的 CWA / MOENV / 地圖服務 API。前端的 API 數據來源區塊會顯示短標籤；游標移過來源項目時，會顯示 dataset title、狀態、用途、經緯度確認狀態與備註。
+前端「API 數據來源」區塊只顯示目前已成功接入並由系統使用的資料來源。畫面會依機關或服務單位分組，例如中央氣象署、環境部、OpenStreetMap、Windy。游標移到機關項目上時會顯示來源明細；點擊機關項目可固定明細，再點擊一次可隱藏。
 
-## 目前已接入
+## 目前已接入來源
 
-| Provider | Dataset / Service | 用途 | 經緯度狀態 | 目前狀態 |
+| Provider | Dataset / Service | 用途 | 經緯度狀態 | 狀態 |
 | --- | --- | --- | --- | --- |
-| CWA | `O-A0003-001` | 即時氣象觀測、氣溫、每小時降雨量、當天累積雨量欄位、濕度、風速、能見度 | 目前 parser 可讀測站座標 | Active |
-| MOENV | `aqx_p_432` | PM2.5、PM10、O3 8hr、CO 8hr、SO2、NO2、空品狀態、主要污染物 | 目前 parser 可讀空品站座標 | Active |
-| OpenStreetMap | tile service | OSM 模式地圖底圖 | Web map tiles | Active |
-| Windy | Map Forecast API | Windy 風場背景 | 地圖背景服務 | Active |
-| CWA | `F-D0047-093` | 鄉鎮天氣預報 | 需要 location / geocode join | Optional |
+| CWA | `O-A0003-001` | 即時氣象觀測：氣溫、濕度、風速、能見度、天氣現象 | 測站經緯度 | Active |
+| CWA | `O-A0002-001` | 雨量站觀測：短週期降雨量、當天累積雨量 | 雨量站經緯度 | Active |
+| CWA | `F-D0047-093` | 鄉鎮天氣預報 | 行政區或地理編碼位置 | Active |
+| MOENV | `aqx_p_432` | 空氣品質監測：PM2.5、PM10、O3 8hr、CO 8hr、SO2、NO2 | 空品測站經緯度 | Active |
+| OpenStreetMap | tile service | OSM 地圖底圖 | Web Mercator 地圖瓦片 | Active |
+| Windy | Map Forecast API | Windy 風場背景 | 地圖與氣象圖層服務 | Active |
 
-## 候選 API 與是否繼續發展
+未成功接入或尚未完成驗證的 API 不會出現在前端 API source stack。
 
-| Dataset | 類型 | 是否繼續 | 原因 |
-| --- | --- | --- | --- |
-| `O-A0001-001` | 自動氣象站觀測 | 可以評估 | 預期有測站座標，但仍需用 raw response 實測欄位名稱。 |
-| `O-A0002-001` | 自動雨量站觀測 | 優先評估 | 最符合「每小時降雨量」與「當天累積雨量」需求，但需先確認今日累積欄位名稱。 |
-| `A-B0062-001` | 日出日沒 | 暫不發展 | 靜態 CWA dataset 頁面只確認資料集存在，無法確認 raw response 是否有經緯度；未確認前不做。 |
-| `E-A0015-001` | 地震報告 | 暫不發展 | 靜態 CWA dataset 頁面只確認資料集存在，無法確認 raw response 是否有震央經緯度；未確認前不做。 |
-| `E-A0016-001` | 地震震度 | 暫不發展 | 靜態 CWA dataset 頁面只確認資料集存在，無法確認 raw response 是否有測站或區域經緯度；未確認前不做。 |
-| `W-C0033-001` / `W-C0033-006` | 警特報 / 影響區域 | 暫不做點位 | 這類資料多半是區域型，不是測站點位；若未來要做，應用行政區 polygon join。 |
+## 雨量欄位修正
+
+目前前端雨量展示分為兩個指標：
+
+| 指標 | 欄位 | 說明 |
+| --- | --- | --- |
+| 短週期降雨量 | `rainfall_10min` | 優先讀取 10 分鐘雨量；若資料源提供 15 分鐘雨量，也會納入解析。 |
+| 當天累積雨量 | `rainfall_today` | 讀取今日或日累積雨量欄位。 |
+
+後端已新增 `O-A0002-001` 雨量站同步，並修正 CWA API list 參數編碼，避免欄位篩選參數沒有正確傳遞造成雨量資料空白。
 
 ## AQI 取消後的污染物指標
 
@@ -29,8 +32,21 @@
 
 每個污染物按鈕都提供 hover 說明，讓使用者知道 PM2.5 是細懸浮微粒、PM10 常與揚塵有關、O3 是光化學污染物、CO 與不完全燃燒有關、SO2 常與含硫燃料燃燒有關、NO2 常與交通與燃燒排放有關。
 
-## 雨量欄位修正
+## 未接入 API 的經緯度檢查
 
-目前只保留兩個雨量展示指標：`rainfall_1h` 對應「每小時降雨量」，`rainfall_today` 對應「當天累積雨量」。不再把 3h、6h、12h、24h 都塞進前端，避免使用者誤解 24h rolling rainfall 與當日累積雨量。
+已新增檢查工具：
 
-若 `O-A0003-001` 沒有回傳 `rainfall_today`，下一階段應優先接 `O-A0002-001`，並用 raw response 確認真正的今日累積雨量欄位名稱後再上線。
+```bash
+python scripts/check_cwa_dataset_coordinates.py
+```
+
+此工具會讀取 `CWA_API_KEY`，針對下列尚未接入的資料集抓取少量樣本並遞迴搜尋經緯度欄位：
+
+- `O-A0001-001`
+- `A-B0062-001`
+- `W-C0033-001`
+- `W-C0033-006`
+- `E-A0015-001`
+- `E-A0016-001`
+
+檢查結果會輸出 JSON，包含 `has_coordinate_fields` 與偵測到的欄位路徑。確認具有可用經緯度後，才會進入功能開發。
