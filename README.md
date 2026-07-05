@@ -5,14 +5,14 @@
 <p align="center">
   <img src="https://img.shields.io/badge/FastAPI-Python-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/React-TypeScript-3178C6?style=for-the-badge&logo=react&logoColor=white" alt="React TypeScript" />
-  <img src="https://img.shields.io/badge/Vite-Frontend-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/Vite-Frontend-646CFF?style=for-the-badge&logo=vite" alt="Vite" />
+  <img src="https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite" alt="SQLite" />
   <img src="https://img.shields.io/badge/MapLibre-GeoMap-396CB2?style=for-the-badge" alt="MapLibre GeoMap" />
 </p>
 
 💡 **本專案旨在透過中央氣象署與相關政府開放 API，建立一套以地圖為核心的台灣環境觀測監測與視覺化應用。**
 
-專案透過 OpenData API 呼叫取得觀測資料，經由後端清洗、正規化與儲存後，再以前端 GeoMap 介面呈現測站分布、觀測指標、縣市差異與環境狀態。使用者可透過地圖模式、指標切換、縣市篩選與門檻控制，快速掌握台灣各地的氣象與環境觀測資訊。
+專案透過 OpenData API 呼叫取得觀測資料，經由後端清洗、正規化與儲存後，再以前端 GeoMap 介面呈現測站分布、觀測指標、縣市差異與環境狀態。
 
 🔗 [**Live Demo**](https://cwa-weather-crawler.vercel.app/)
 
@@ -20,19 +20,12 @@
 
 ## 🎯 專案核心定位與特色
 
-本專案定位為 **CWA OpenData API 的地圖監測與視覺化應用**。CWA 是主要資料核心，環境部資料則作為空氣品質觀測的延伸整合，讓地圖能呈現更完整的區域環境狀態。
+本專案定位為 **CWA OpenData API 的地圖監測與視覺化應用**。CWA 是主要資料核心，環境部資料則作為空氣品質觀測的延伸整合。
 
-1. **OpenData API 呼叫應用**：
-   後端透過中央氣象署與環境部開放 API 取得觀測資料，並將不同來源的資料格式整理為前端可直接使用的統一資料結構。
-
-2. **GeoMap 地圖監測介面**：
-   前端以地圖作為主要互動入口，讓使用者能直接從地理分布理解各地測站狀態，而不是只透過表格或單純圖表閱讀資料。
-
-3. **雙地圖模式設計**：
-   OSM 模式以 OpenStreetMap / MapLibre 呈現測站資料；Windy 模式提供風場背景，並疊加相同觀測指標的測站圓點，讓兩種地圖模式維持一致操作邏輯。
-
-4. **可擴充的觀測資料流程**：
-   API client、normalization、repository 與 FastAPI layer 分開設計，後續可逐步加入 UV、AQI、PM10、O3、NO2、SO2、CO 或其他環境觀測資料。
+1. **OpenData API 呼叫應用**：後端透過中央氣象署與環境部開放 API 取得觀測資料，並整理為前端可直接使用的統一資料結構。
+2. **GeoMap 地圖監測介面**：前端以地圖作為主要互動入口，讓使用者能直接從地理分布理解各地測站狀態。
+3. **雙地圖模式設計**：OSM 模式以 OpenStreetMap / MapLibre 呈現測站資料；Windy 模式提供風場背景並疊加觀測指標圓點。
+4. **可擴充的觀測資料流程**：API client、normalization、repository、sync manager 與 FastAPI route layer 分開設計，方便後續加入更多環境觀測資料。
 
 ---
 
@@ -40,19 +33,24 @@
 
 ```mermaid
 flowchart TD
-    subgraph "資料來源 (OpenData API Sources)"
+    subgraph "資料來源"
         A[中央氣象署 CWA OpenData API]
         B[環境部 MOENV OpenData API]
     end
 
-    subgraph "後端資料處理 (FastAPI / Python)"
+    subgraph "資料同步核心 data_pipeline"
         C[API Client]
         D[Normalize / Clean]
-        E[(SQLite Database)]
-        F[FastAPI Endpoints]
+        E[Repository / SQLite Write]
+        M[Sync Manager]
     end
 
-    subgraph "前端地圖監測介面 (React / Vite)"
+    subgraph "後端 API 層"
+        R[Routes]
+        S[API Services]
+    end
+
+    subgraph "前端地圖監測介面"
         G[MapLibre / OSM Mode]
         H[Windy Mode]
         I[County Summary / Controls]
@@ -62,10 +60,13 @@ flowchart TD
     B --> C
     C --> D
     D --> E
-    E --> F
-    F --> G
-    F --> H
-    F --> I
+    M --> C
+    R --> M
+    R --> S
+    S --> E
+    R --> G
+    R --> H
+    R --> I
 ```
 
 ---
@@ -73,14 +74,34 @@ flowchart TD
 ## 📂 目錄結構與模組說明
 
 ```text
-├── api/                         # FastAPI endpoints
-├── data_pipeline/               # CWA / MOENV API clients, data sync and normalization
-├── database/                    # SQLite connection, schema and initialization
-├── data/                        # Local runtime data, ignored by git
-├── docs/                        # Planning and cloud deployment notes
-├── frontend/                    # React / Vite GeoMap monitor frontend
-└── scripts/                     # CLI scripts for API sync, init and validation
+├── api/                         # FastAPI HTTP layer
+│   ├── main.py                   # App bootstrap, CORS and router registration
+│   ├── routes/                   # HTTP endpoints grouped by domain
+│   └── services/                 # Query, summary and GeoJSON services for API routes
+├── data_pipeline/                # CWA / MOENV API clients, data sync and normalization
+│   ├── service.py                # Single-source sync functions
+│   ├── sync_manager.py           # Multi-source sync entry point and future concurrency layer
+│   ├── cwa_client.py             # CWA OpenData API client
+│   ├── moenv_client.py           # MOENV OpenData API client
+│   ├── normalize.py              # Raw API response normalization
+│   └── repository.py             # Raw snapshots, DB write and fetch logs
+├── database/                     # SQLite connection, schema and initialization
+├── data/                         # Local runtime data, ignored by git
+├── docs/                         # Planning and cloud deployment notes
+├── frontend/                     # React / Vite GeoMap monitor frontend
+└── scripts/                      # CLI scripts for API sync, init and validation
 ```
+
+---
+
+## 🧩 後端責任邊界
+
+| Layer | 主要職責 | 不負責 |
+| --- | --- | --- |
+| `scripts/` | 本機、部署或排程使用的命令列入口 | 不直接寫 API 呼叫、資料清洗或 DB 寫入邏輯 |
+| `api/routes/` | 接收 HTTP request，回傳 response，處理 endpoint grouping | 不直接寫複雜資料同步或統計邏輯 |
+| `api/services/` | 提供 API 所需的查詢、摘要、GeoJSON 組裝 | 不處理外部 OpenData API 同步 |
+| `data_pipeline/` | 外部 API client、資料清洗、同步流程、寫入資料庫 | 不處理 HTTP routing 或 CLI 互動 |
 
 ---
 
@@ -99,78 +120,37 @@ flowchart TD
 
 本專案目前沒有自行實作 Python 多執行緒或 multiprocessing。後端資料同步採用明確的 API client 流程，分別呼叫 CWA 與 MOENV OpenData API，完成資料清洗後寫入 SQLite。
 
-前端載入採用瀏覽器端並行請求設計：首頁會同時取得縣市摘要、CWA GeoJSON 測站資料、PM2.5 觀測資料與健康檢查資訊，避免多個 API 依序等待而拉長 loading 時間。手動更新資料時，也會同時觸發 CWA 與 MOENV 的 refresh endpoint，再重新載入最新觀測結果。
+前端載入採用瀏覽器端並行請求設計：首頁會同時取得縣市摘要、CWA GeoJSON 測站資料、PM2.5 觀測資料與健康檢查資訊，避免多個 API 依序等待而拉長 loading 時間。
 
-若未來整合更多資料來源，可再評估後端加入 async HTTP client、背景任務佇列或排程服務，讓多資料源同步流程更適合長期運行。
+後端已新增 `data_pipeline/sync_manager.py` 作為多資料源同步入口。目前 SQLite-backed MVP 仍以循序寫入為主，避免多個 writer 同時寫入造成 database lock。若未來改用 PostgreSQL，或將 fetch / normalize / write 三個階段拆開，`sync_manager.py` 會是導入 `ThreadPoolExecutor`、`asyncio + httpx.AsyncClient` 或背景任務佇列的主要位置。
 
 ---
 
-## 🔑 API Key 與環境變數
+## 🔑 環境變數
 
-本專案需要 CWA、MOENV 與 Windy API key。
-
-- `CWA_API_KEY` 與 `MOENV_API_KEY` 僅供後端使用。
-- `VITE_WINDY_API_KEY` 供前端載入 Windy Map Forecast API。
-- 若前後端分離部署，`VITE_API_BASE_URL` 需設定為後端服務網址。
-
-複製環境變數範例檔：
-
-```powershell
-copy .env.example .env
-```
-
-`.env.example`：
-
-```env
-# Frontend
-VITE_API_BASE_URL=your_backend_website_deployment_link
-VITE_WINDY_API_KEY=your_windy_map_forecast_key_here
-
-# Backend
-CWA_API_KEY=your_cwa_api_key_here
-CWA_DATASET_ID=F-D0047-091
-CWA_OBSERVATION_DATASET_ID=O-A0003-001
-MOENV_API_KEY=your_moenv_api_key_here
-MOENV_PM25_DATASET_ID=aqx_p_432
-DATABASE_PATH=data/weather.db
-RAW_DATA_DIR=data/raw
-```
+本專案需要 CWA、MOENV 與 Windy 的環境變數設定。實際變數名稱與範例請參考 `.env.example`，正式部署時請在後端平台與前端平台分別設定。
 
 ---
 
 ## 🚀 部署與本地開發
 
-### 1. 安裝後端環境
-
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### 2. 初始化資料庫與同步觀測資料
-
-```powershell
 py scripts/init_db.py
 py scripts/run_weather_observations.py
 py scripts/run_pm25.py
-```
-
-### 3. 啟動 FastAPI 後端
-
-```powershell
 uvicorn api.main:app --reload
 ```
 
-### 4. 啟動前端地圖介面
+前端：
 
 ```powershell
 cd frontend
 npm install
 npm run dev
 ```
-
-啟動後可於瀏覽器開啟 Vite 顯示的 localhost 網址進行預覽。
 
 ---
 
@@ -184,21 +164,8 @@ npm run dev
 | `/api/summary/counties` | GET | 縣市層級摘要資料 |
 | `/api/refresh/weather` | POST | 更新 CWA 氣象觀測資料 |
 | `/api/refresh/pm25` | POST | 更新 MOENV 空氣品質資料 |
-
----
-
-## ☁️ 雲端部署
-
-目前 MVP 採用前後端分離部署：
-
-| 層級 | 平台 | 重點設定 |
-| --- | --- | --- |
-| 前端 | Vercel | `VITE_API_BASE_URL`, `VITE_WINDY_API_KEY` |
-| 後端 | Render | CWA / MOENV API key, SQLite persistent path |
-| 資料庫 | Render Persistent Disk | `weather.db` 與 raw snapshot |
-| 排程 | GitHub Actions 或 cron service | 定期呼叫 refresh endpoints |
-
-完整部署流程請參考 [docs/cloud_deployment.md](docs/cloud_deployment.md)。
+| `/api/refresh/observations` | POST | 透過 sync manager 更新主要觀測資料來源 |
+| `/api/refresh/all` | POST | 透過 sync manager 更新 forecast、weather 與 PM2.5 |
 
 ---
 
@@ -207,7 +174,6 @@ npm run dev
 - 擴充 UV、AQI、PM10、O3、NO2、SO2、CO 等環境觀測指標。
 - 建立高溫、強風、強降雨、高 UV 與空氣品質不良等警示條件。
 - 累積歷史資料後，加入縣市趨勢、時間序列比較與異常觀測提示。
-- 增加後台管理介面，讓資料更新與排程狀態更容易被維護。
 - 強化不同縣市、測站與時間區間之間的 GeoMap 視覺化比較。
 
 ---
@@ -218,4 +184,4 @@ npm run dev
 - 政府開放資料常見缺值與 sentinel value，例如 `-99`、`-999`，需要在後端清理後再交給前端呈現。
 - 環境觀測資料應明確區分 `observed_at` 與 `fetched_at`，避免使用者誤解資料新鮮度。
 - OSM 與 Windy 模式應共用相同的指標、篩選條件、門檻與圖例，降低使用者操作成本。
-- README、`.env.example` 與部署文件需要和實際功能同步，尤其是前後端分離時的環境變數設定與 API key 使用邊界。
+- README、`.env.example` 與部署文件需要和實際功能同步，尤其是前後端分離時的環境變數設定與 API 使用邊界。
