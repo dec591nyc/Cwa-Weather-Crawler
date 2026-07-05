@@ -18,10 +18,19 @@ export const LayerControl: React.FC<LayerControlProps> = ({
   const activeConfig = metricConfigs[activeMetric];
 
   return (
-    <section className="control-dock" aria-label="地圖控制">
-      <div className="control-group control-group-metric">
+    <section
+      className="control-dock"
+      aria-label="地圖控制"
+      style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 360px)", justifyContent: "stretch" }}
+    >
+      <div className="control-group control-group-metric" style={{ maxWidth: "none" }}>
         <div className="control-label">觀測指標</div>
-        <div className="metric-tabs" role="tablist" aria-label="觀測指標">
+        <div
+          className="metric-tabs"
+          role="tablist"
+          aria-label="觀測指標"
+          style={{ flexWrap: "nowrap", overflowX: "auto", width: "100%" }}
+        >
           {metricOrder.map((metric) => {
             const config = metricConfigs[metric];
             return (
@@ -32,6 +41,7 @@ export const LayerControl: React.FC<LayerControlProps> = ({
                 onClick={() => onMetricChange(metric)}
                 role="tab"
                 aria-selected={activeMetric === metric}
+                style={{ flex: "0 0 auto", whiteSpace: "nowrap" }}
               >
                 <span className="metric-tab-code">{config.shortLabel}</span>
                 <span>{config.label}</span>
