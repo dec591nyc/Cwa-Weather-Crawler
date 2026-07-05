@@ -21,6 +21,7 @@ export interface ForecastProperties {
   rainfall?: number | null;
   rainfall_1h?: number | null;
   rainfall_today?: number | null;
+  rainfall_24h?: number | null;
   visibility_km?: number | null;
   visibility_description?: string | null;
   uv_index?: number | null;
@@ -45,25 +46,15 @@ export type ObservationMetric =
 
 export interface GeoJsonFeature {
   type: "Feature";
-  geometry: {
-    type: "Point";
-    coordinates: [number, number];
-  };
+  geometry: { type: "Point"; coordinates: [number, number]; };
   properties: ForecastProperties;
 }
 
-export interface GeoJsonCollection {
-  type: "FeatureCollection";
-  features: GeoJsonFeature[];
-}
+export interface GeoJsonCollection { type: "FeatureCollection"; features: GeoJsonFeature[]; }
 
 export interface HealthResponse {
   status: string;
-  latest_fetch: {
-    fetched_at: string;
-    status: string;
-    record_count: number;
-  } | null;
+  latest_fetch: { fetched_at: string; status: string; record_count: number; } | null;
 }
 
 export interface Pm25Observation {
@@ -93,12 +84,7 @@ export interface Pm25Observation {
   fetched_at: string;
 }
 
-export interface NumericStats {
-  min: number | null;
-  max: number | null;
-  avg: number | null;
-  count: number;
-}
+export interface NumericStats { min: number | null; max: number | null; avg: number | null; count: number; }
 
 export interface CountySummary {
   county: string;
@@ -123,10 +109,7 @@ export interface CountySummary {
   no2: NumericStats;
 }
 
-export interface CountySummaryResponse {
-  count: number;
-  summaries: CountySummary[];
-}
+export interface CountySummaryResponse { count: number; summaries: CountySummary[]; }
 
 export interface ApiSource {
   provider: string;
@@ -142,7 +125,4 @@ export interface ApiSource {
   note: string;
 }
 
-export interface ApiSourcesResponse {
-  count: number;
-  sources: ApiSource[];
-}
+export interface ApiSourcesResponse { count: number; sources: ApiSource[]; }
