@@ -174,7 +174,7 @@ export const App: React.FC = () => {
       setSyncWarning(null);
       const refreshRes = await fetch(apiUrl("/api/refresh/observations"), { method: "POST" });
       if (!refreshRes.ok) {
-        throw new Error("Observation auto-sync failed");
+        throw new Error("Observation sync failed");
       }
     } catch (err) {
       console.warn(err);
@@ -202,6 +202,16 @@ export const App: React.FC = () => {
       setWindyMounted(true);
     }
   }, [activePage]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await syncLatestObservations();
+      await fetchData();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleMetricMinChange = (value: number) => {
     setMetricMinByMetric((current) => ({
@@ -261,10 +271,17 @@ export const App: React.FC = () => {
             </div>
             <div className="api-meta-control-panel">
               <span className="api-label">API 數據來源</span>
-              <span className="header-status" role="status" aria-live="polite">
-                <span className={`status-dot ${syncWarning ? "stale" : ""}`} />
-                <span>{refreshing ? "自動同步中" : syncWarning ? "顯示上一批資料" : "已自動同步"}</span>
-              </span>
+              <button
+                className={`header-refresh-btn ${refreshing ? "loading" : ""}`}
+                onClick={handleRefresh}
+                disabled={refreshing}
+                type="button"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+                {refreshing ? "同步中" : "更新觀測資料"}
+              </button>
             </div>
             <div className="api-meta-source-panel">
               <div className="api-source-stack">
