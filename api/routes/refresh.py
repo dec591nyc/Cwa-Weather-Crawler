@@ -48,15 +48,9 @@ def refresh_earthquakes():
 
 @router.post("/refresh/observations")
 def refresh_observation_sources():
-    result = sync_observation_sources()
-    if result["status"] == "partial_failed":
-        raise HTTPException(status_code=500, detail=result)
-    return result
+    return sync_observation_sources()
 
 
 @router.post("/refresh/all")
 def refresh_all_sources():
-    result = sync_all_sources()
-    if result["status"] == "partial_failed":
-        raise HTTPException(status_code=500, detail=result)
-    return result
+    return sync_all_sources()

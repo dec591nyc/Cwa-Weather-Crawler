@@ -30,23 +30,37 @@ export interface ForecastProperties {
   altitude_m?: number | null;
 }
 
-export type ObservationMetric =
-  | "temperature"
-  | "rainfall_10min"
-  | "rainfall_24h"
-  | "humidity"
-  | "wind_speed"
-  | "visibility_km"
-  | "pm25"
-  | "pm10"
-  | "o3_8hr"
-  | "co_8hr"
-  | "so2"
-  | "no2";
+export type ObservationMetric = "temperature" | "rainfall_10min" | "rainfall_24h" | "humidity" | "wind_speed" | "visibility_km" | "pm25" | "pm10" | "o3_8hr" | "co_8hr" | "so2" | "no2";
+export type DataLayer = "observations" | "earthquakes";
+export type SyncSourceState = "success" | "failed" | "unknown";
+export type SyncOverallStatus = "ok" | "warning" | "error";
 
 export interface GeoJsonFeature { type: "Feature"; geometry: { type: "Point"; coordinates: [number, number]; }; properties: ForecastProperties; }
 export interface GeoJsonCollection { type: "FeatureCollection"; features: GeoJsonFeature[]; }
 export interface HealthResponse { status: string; latest_fetch: { fetched_at: string; status: string; record_count: number; } | null; }
+
+export interface SyncSourceStatus {
+  provider: string;
+  dataset_id: string;
+  title: string;
+  category: string;
+  status: SyncSourceState;
+  record_count: number;
+  fetched_at: string | null;
+  response_ms: number | null;
+  error_message: string | null;
+  is_core: boolean;
+}
+
+export interface SyncStatusResponse {
+  overall_status: SyncOverallStatus;
+  summary: string;
+  total: number;
+  success_count: number;
+  failed_count: number;
+  unknown_count: number;
+  sources: SyncSourceStatus[];
+}
 
 export interface Pm25Observation {
   id?: number;
