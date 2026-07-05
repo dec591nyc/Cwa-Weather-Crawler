@@ -20,14 +20,11 @@ import type {
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
 const GITHUB_URL = "https://github.com/dec591nyc/CWA-GeoMap_Monitor";
-const COUNTY_SORT_ORDER = [
-  "基隆市", "臺北市", "新北市", "桃園市", "新竹縣", "新竹市", "苗栗縣", "臺中市", "彰化縣", "南投縣", "雲林縣", "嘉義縣", "嘉義市", "臺南市", "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣", "金門縣", "連江縣",
-];
-const COUNTY_SORT_INDEX = new Map<string, number>(
-  COUNTY_SORT_ORDER.flatMap((county, index): Array<[string, number]> => [[county, index], [county.replace("臺", "台"), index]])
-);
+const COUNTY_SORT_ORDER = ["基隆市", "臺北市", "新北市", "桃園市", "新竹縣", "新竹市", "苗栗縣", "臺中市", "彰化縣", "南投縣", "雲林縣", "嘉義縣", "嘉義市", "臺南市", "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣", "金門縣", "連江縣"];
+const COUNTY_SORT_INDEX = new Map<string, number>(COUNTY_SORT_ORDER.flatMap((county, index): Array<[string, number]> => [[county, index], [county.replace("臺", "台"), index]]));
 
 type AppPage = "dashboard" | "windy";
+interface SourceGroup { provider: string; sources: ApiSource[]; }
 
 function formatDateTime(value: string | null): string {
   if (!value) return "尚未取得";
@@ -57,8 +54,19 @@ function sortCounties(counties: string[]): string[] {
   });
 }
 
-function sourceTooltip(source: ApiSource): string {
-  return `${source.provider} ${source.dataset_id}\n${source.title}\n狀態: ${source.status}\n類型: ${source.category}\n經緯度: ${source.coordinate_quality}\n用途: ${source.used_by?.join(", ") || "尚未接入"}\n說明: ${source.note}`;
+function groupApiSources(sources: ApiSource[]): SourceGroup[] {
+  const groups = new Map<string, ApiSource[]>();
+  for (const source of sources.filter((item) => item.status === "active")) {
+    groups.set(source.provider, [...(groups.get(source.provider) || []), source]);
+  }
+  return Array.from(groups.entries()).map(([provider, groupSources]) => ({ provider, sources: groupSources }));
+}
+
+function formatProviderLabel(provider: string): string {
+  if (provider === "MOENV") return "環境部";
+  if (provider === "CWA") return "中央氣象署";
+  if (provider === "OpenStreetMap") return "OSM";
+  return provider;
 }
 
 export const App: React.FC = () => {
@@ -69,12 +77,14 @@ export const App: React.FC = () => {
   const [counties, setCounties] = useState<string[]>([]);
   const [countySummaries, setCountySummaries] = useState<CountySummary[]>([]);
   const [apiSources, setApiSources] = useState<ApiSource[]>([]);
+  const [hoveredSourceProvider, setHoveredSourceProvider] = useState<string | null>(null);
+  const [pinnedSourceProvider, setPinnedSourceProvider] = useState<string | null>(null);
 
   const [selectedCounty, setSelectedCounty] = useState<string>("");
   const [activeMetric, setActiveMetric] = useState<ObservationMetric>("temperature");
   const [metricMinByMetric, setMetricMinByMetric] = useState<Record<ObservationMetric, number>>({
     temperature: 0,
-    rainfall_1h: 0,
+    rainfall_10min: 0,
     rainfall_today: 0,
     humidity: 0,
     wind_speed: 0,
@@ -94,20 +104,20 @@ export const App: React.FC = () => {
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
 
   const metricMin = metricMinByMetric[activeMetric];
-  const latestObservedAt = useMemo(
-    () => latestTimestamp([...features.map((feature) => feature.properties.observed_at), ...pm25Observations.map((obs) => obs.observed_at)]),
-    [features, pm25Observations]
-  );
+  const latestObservedAt = useMemo(() => latestTimestamp([...features.map((feature) => feature.properties.observed_at), ...pm25Observations.map((obs) => obs.observed_at)]), [features, pm25Observations]);
 
   const visibleApiSources = useMemo(() => {
-    if (apiSources.length) return apiSources;
+    if (apiSources.length) return apiSources.filter((source) => source.status === "active");
     const cwa = Array.from(new Set(features.map((feature) => feature.properties.source_dataset).filter(Boolean)));
     const moenv = Array.from(new Set(pm25Observations.map((obs) => obs.source_dataset).filter(Boolean)));
     return [
-      ...cwa.map((datasetId) => ({ provider: "CWA", dataset_id: datasetId, title: "即時氣象觀測", category: "current_weather", endpoint: "", status: "active", map_ready: true, coordinate_quality: "station_wgs84", used_by: [], metrics: [], note: "從即時資料回推的來源" } as ApiSource)),
-      ...moenv.map((datasetId) => ({ provider: "MOENV", dataset_id: datasetId, title: "空氣品質觀測", category: "air_quality", endpoint: "", status: "active", map_ready: true, coordinate_quality: "station_coordinate", used_by: [], metrics: [], note: "從即時資料回推的來源" } as ApiSource)),
+      ...cwa.map((datasetId) => ({ provider: "CWA", dataset_id: datasetId, title: "即時氣象觀測", category: "current_weather", endpoint: "", status: "active", map_ready: true, coordinate_quality: "測站座標", used_by: ["氣象與雨量觀測"], metrics: [], note: "中央氣象署即時觀測資料來源。" } as ApiSource)),
+      ...moenv.map((datasetId) => ({ provider: "MOENV", dataset_id: datasetId, title: "空氣品質監測即時資料", category: "air_quality", endpoint: "", status: "active", map_ready: true, coordinate_quality: "測站座標", used_by: ["空氣品質觀測"], metrics: [], note: "環境部空氣品質監測資料來源。" } as ApiSource)),
     ];
   }, [apiSources, features, pm25Observations]);
+
+  const sourceGroups = useMemo(() => groupApiSources(visibleApiSources), [visibleApiSources]);
+  const activeSourceGroup = sourceGroups.find((group) => group.provider === (pinnedSourceProvider || hoveredSourceProvider)) || null;
 
   const fetchData = async () => {
     try {
@@ -164,12 +174,7 @@ export const App: React.FC = () => {
   const loadInitialData = async () => {
     setLoading(true);
     setRefreshing(true);
-    try {
-      await syncLatestObservations();
-      await fetchData();
-    } finally {
-      setRefreshing(false);
-    }
+    try { await syncLatestObservations(); await fetchData(); } finally { setRefreshing(false); }
   };
 
   useEffect(() => { void loadInitialData(); }, []);
@@ -177,12 +182,7 @@ export const App: React.FC = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      await syncLatestObservations();
-      await fetchData();
-    } finally {
-      setRefreshing(false);
-    }
+    try { await syncLatestObservations(); await fetchData(); } finally { setRefreshing(false); }
   };
 
   const handleMetricMinChange = (value: number) => setMetricMinByMetric((current) => ({ ...current, [activeMetric]: value }));
@@ -192,9 +192,7 @@ export const App: React.FC = () => {
     setMetricMinByMetric((current) => ({ ...current, [metric]: current[metric] ?? config.min }));
   };
 
-  const mapLayerStyle = (visible: boolean): React.CSSProperties => ({
-    position: "absolute", inset: 0, width: "100%", height: "100%", visibility: visible ? "visible" : "hidden", opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", zIndex: visible ? 2 : 1,
-  });
+  const mapLayerStyle = (visible: boolean): React.CSSProperties => ({ position: "absolute", inset: 0, width: "100%", height: "100%", visibility: visible ? "visible" : "hidden", opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", zIndex: visible ? 2 : 1 });
 
   return (
     <>
@@ -204,62 +202,49 @@ export const App: React.FC = () => {
           <div>
             <h1 className="header-title">台灣即時氣象與空品觀測</h1>
             <p className="header-subtitle">CWA 觀測、環境部污染物指標、OSM / Windy 地圖底圖</p>
-            <div className="brand-strip" aria-label="資料與地圖服務">
-              <span className="brand-badge brand-cwa">CWA</span>
-              <span className="brand-badge brand-moenv">MOENV</span>
-              <span className="brand-badge brand-osm">OSM</span>
-              <span className="brand-badge brand-windy">Windy</span>
-            </div>
+            <div className="brand-strip" aria-label="資料與地圖服務"><span className="brand-badge brand-cwa">CWA</span><span className="brand-badge brand-moenv">MOENV</span><span className="brand-badge brand-osm">OSM</span><span className="brand-badge brand-windy">Windy</span></div>
           </div>
         </div>
 
         <div className="header-meta-bar" aria-label="觀測時間與 API 數據來源">
           <div className="api-meta-card">
-            <div className="api-meta-time">
-              <span><small>觀測時間</small><strong>{formatDateTime(latestObservedAt)}</strong></span>
-              <span><small>資料同步</small><strong>{lastUpdate ? formatDateTime(lastUpdate) : "尚未取得同步時間"}</strong></span>
-            </div>
-            <div className="api-meta-control-panel">
-              <span className="api-label">API 數據來源</span>
-              <button className={`header-refresh-btn ${refreshing ? "loading" : ""}`} onClick={handleRefresh} disabled={refreshing} type="button">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>
-                {refreshing ? "同步中" : "更新觀測資料"}
-              </button>
-            </div>
+            <div className="api-meta-time"><span><small>觀測時間</small><strong>{formatDateTime(latestObservedAt)}</strong></span><span><small>資料同步</small><strong>{lastUpdate ? formatDateTime(lastUpdate) : "尚未取得同步時間"}</strong></span></div>
+            <div className="api-meta-control-panel"><span className="api-label">API 數據來源</span><button className={`header-refresh-btn ${refreshing ? "loading" : ""}`} onClick={handleRefresh} disabled={refreshing} type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>{refreshing ? "同步中" : "更新觀測資料"}</button></div>
             <div className="api-meta-source-panel">
-              <div className="api-source-stack" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(128px, 1fr))" }}>
-                {visibleApiSources.map((source) => (
-                  <div className="api-source-row" key={`${source.provider}-${source.dataset_id}`} title={sourceTooltip(source)} style={{ gridTemplateColumns: "auto minmax(0, 1fr)" }}>
-                    <span className="api-source-name">{source.provider}</span>
-                    <strong>{source.dataset_id}</strong>
-                  </div>
-                ))}
+              <div className="api-source-stack" style={{ position: "relative", display: "flex", flexWrap: "wrap", gap: "0.42rem" }} onMouseLeave={() => setHoveredSourceProvider(null)}>
+                {sourceGroups.map((group) => {
+                  const pinned = pinnedSourceProvider === group.provider;
+                  return (
+                    <button key={group.provider} type="button" className={`api-source-row ${pinned ? "active" : ""}`} onMouseEnter={() => setHoveredSourceProvider(group.provider)} onClick={() => setPinnedSourceProvider(pinned ? null : group.provider)} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", border: "1px solid rgba(15, 23, 42, 0.12)", borderRadius: 999, padding: "0.28rem 0.58rem", background: pinned ? "#e0f2fe" : "#ffffff" }}>
+                      <span className="api-source-name">{formatProviderLabel(group.provider)}</span><strong>{group.sources.length}</strong>
+                    </button>
+                  );
+                })}
               </div>
+              {activeSourceGroup && (
+                <div className="api-source-hover-card" style={{ marginTop: "0.46rem", border: "1px solid rgba(15, 23, 42, 0.14)", borderRadius: 10, background: "#ffffff", padding: "0.65rem", boxShadow: "0 10px 24px rgba(15, 23, 42, 0.12)", minWidth: 300 }}>
+                  <div style={{ fontWeight: 900, marginBottom: "0.45rem" }}>{formatProviderLabel(activeSourceGroup.provider)}資料來源</div>
+                  <div style={{ display: "grid", gap: "0.48rem" }}>
+                    {activeSourceGroup.sources.map((source) => (
+                      <div key={`${source.provider}-${source.dataset_id}`} style={{ display: "grid", gap: "0.18rem" }}>
+                        <strong style={{ fontSize: "0.82rem" }}>{source.dataset_id}｜{source.title}</strong>
+                        <span style={{ color: "#475569", fontSize: "0.75rem", lineHeight: 1.45 }}>{source.note}</span>
+                        <small style={{ color: "#64748b", fontWeight: 800 }}>{source.metrics.join("、")}</small>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        <nav className="header-nav" aria-label="主要地圖模式">
-          <button className={`nav-btn ${activePage === "dashboard" ? "active" : ""}`} onClick={() => setActivePage("dashboard")} type="button">OSM</button>
-          <button className={`nav-btn ${activePage === "windy" ? "active" : ""}`} onClick={() => setActivePage("windy")} type="button">Windy</button>
-        </nav>
-
-        <div className="header-actions">
-          <a className="github-btn" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Open GitHub repository"><span>GitHub</span></a>
-          <div className="header-status"><span className={`status-dot ${error || syncWarning ? "stale" : ""}`} /><span>{error ? "API 連線異常" : syncWarning ? "同步警告" : "系統正常"}</span></div>
-        </div>
+        <nav className="header-nav" aria-label="主要地圖模式"><button className={`nav-btn ${activePage === "dashboard" ? "active" : ""}`} onClick={() => setActivePage("dashboard")} type="button">OSM</button><button className={`nav-btn ${activePage === "windy" ? "active" : ""}`} onClick={() => setActivePage("windy")} type="button">Windy</button></nav>
+        <div className="header-actions"><a className="github-btn" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Open GitHub repository"><span>GitHub</span></a><div className="header-status"><span className={`status-dot ${error || syncWarning ? "stale" : ""}`} /><span>{error ? "API 連線異常" : syncWarning ? "同步警告" : "系統正常"}</span></div></div>
       </header>
 
       <main className="app-container">
-        <section className="map-workspace" aria-label="台灣即時氣象地圖">
-          <div className="map-frame">
-            <div style={mapLayerStyle(activePage === "dashboard")}>
-              {loading ? <div className="map-loading-state"><div className="map-loading-stack"><div>正在同步並載入最新觀測資料...</div></div></div> : <><MapLibreMap features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} activeMetric={activeMetric} metricMin={metricMin} /><Legend metric={activeMetric} /></>}
-            </div>
-            {windyMounted && <div style={mapLayerStyle(activePage === "windy")}><WindyMapPage features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} activeMetric={activeMetric} metricMin={metricMin} isActive={activePage === "windy"} /></div>}
-          </div>
-        </section>
-
+        <section className="map-workspace" aria-label="台灣即時氣象地圖"><div className="map-frame"><div style={mapLayerStyle(activePage === "dashboard")}>{loading ? <div className="map-loading-state"><div className="map-loading-stack"><div>正在同步並載入最新觀測資料...</div></div></div> : <><MapLibreMap features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} activeMetric={activeMetric} metricMin={metricMin} /><Legend metric={activeMetric} /></>}</div>{windyMounted && <div style={mapLayerStyle(activePage === "windy")}><WindyMapPage features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} activeMetric={activeMetric} metricMin={metricMin} isActive={activePage === "windy"} /></div>}</div></section>
         <LayerControl activeMetric={activeMetric} onMetricChange={handleMetricChange} metricMin={metricMin} onMetricMinChange={handleMetricMinChange} />
         <CountySummaryPanel summaries={countySummaries} counties={counties} features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} onCountySelect={setSelectedCounty} activeMetric={activeMetric} />
       </main>
