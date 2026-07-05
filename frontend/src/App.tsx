@@ -312,7 +312,13 @@ export const App: React.FC = () => {
         <section className="map-workspace" aria-label="台灣即時氣象地圖">
           <div className="map-frame">
             {activePage === "windy" ? (
-              <WindyMapPage />
+              <WindyMapPage
+                features={features}
+                pm25Observations={pm25Observations}
+                selectedCounty={selectedCounty}
+                activeMetric={activeMetric}
+                metricMin={metricMin}
+              />
             ) : loading ? (
               <div className="map-loading-state">
                 <div className="map-loading-stack">
