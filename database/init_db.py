@@ -7,6 +7,7 @@ from config import settings
 
 SCHEMA_MIGRATIONS = {
     "weather_observations": {
+        "rainfall_10min": "REAL",
         "rainfall_1h": "REAL",
         "rainfall_today": "REAL",
         "visibility_km": "REAL",
