@@ -59,7 +59,13 @@ npm run build
 pip install -r requirements.txt
 ```
 
-6. Start Command：
+6. Start Command 建議 MVP 先用「啟動時自動初始化 + 灌第一批資料」：
+
+```bash
+python scripts/init_db.py && python scripts/run_weather_observations.py && python scripts/run_pm25.py && uvicorn api.main:app --host 0.0.0.0 --port $PORT
+```
+
+這樣就不需要 Render Shell。缺點是每次服務重啟時都會先跑一次 crawler，啟動會比較慢，但對 MVP demo 來說最直覺。等功能穩定後，可以再把 Start Command 改回只初始化資料庫並啟動 API：
 
 ```bash
 python scripts/init_db.py && uvicorn api.main:app --host 0.0.0.0 --port $PORT
@@ -84,11 +90,65 @@ DATABASE_PATH=/var/data/weather.db
 RAW_DATA_DIR=/var/data/raw
 ```
 
-9. 部署後先開 Render Shell，手動灌第一批資料：
+9. Render 免費帳戶若沒有 Shell 權限，不要卡在手動灌資料。改用以下任一方式初始化資料：
+
+### 方式 A：用 Start Command 自動灌第一批資料
+
+如果第 6 步已經使用完整 Start Command，部署完成後資料會在服務啟動前自動寫入 SQLite。部署完成後直接檢查 API：
 
 ```bash
-python scripts/run_weather_observations.py
-python scripts/run_pm25.py
+curl https://your-backend.onrender.com/api/health
+curl https://your-backend.onrender.com/api/summary/counties
+```
+
+### 方式 B：服務啟動後，從本機呼叫 refresh endpoint
+
+如果 Start Command 只啟動 API，等 Render 部署完成後，在自己電腦終端機執行：
+
+```bash
+curl -X POST https://your-backend.onrender.com/api/refresh/weather
+curl -X POST https://your-backend.onrender.com/api/refresh/pm25
+curl https://your-backend.onrender.com/api/summary/counties
+```
+
+Windows PowerShell 如果沒有 `curl`，可改用：
+
+```powershell
+Invoke-RestMethod -Method Post https://your-backend.onrender.com/api/refresh/weather
+Invoke-RestMethod -Method Post https://your-backend.onrender.com/api/refresh/pm25
+Invoke-RestMethod https://your-backend.onrender.com/api/summary/counties
+```
+
+### 方式 C：用 GitHub Actions 手動觸發初始化
+
+如果不想每次部署都跑 crawler，可以新增 workflow，用 `workflow_dispatch` 手動觸發一次：
+
+```yaml
+name: Refresh Weather Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake backend
+        run: curl -f "${{ secrets.API_BASE_URL }}/api/health"
+
+      - name: Refresh weather observations
+        run: curl -f -X POST "${{ secrets.API_BASE_URL }}/api/refresh/weather"
+
+      - name: Refresh PM2.5 observations
+        run: curl -f -X POST "${{ secrets.API_BASE_URL }}/api/refresh/pm25"
+```
+
+GitHub Actions Secrets 需要設定：
+
+```env
+API_BASE_URL=https://your-backend.onrender.com
 ```
 
 10. 檢查：
@@ -97,6 +157,8 @@ python scripts/run_pm25.py
 curl https://your-backend.onrender.com/api/health
 curl https://your-backend.onrender.com/api/summary/counties
 ```
+
+如果 `/api/summary/counties` 是空的，代表 crawler 還沒成功寫入資料。先檢查 Render Logs 是否有 API key 錯誤、資料庫路徑錯誤、persistent disk mount path 錯誤。
 
 ## 前端部署：Vercel
 
@@ -168,6 +230,10 @@ RAW_DATA_DIR=/var/data/raw
 
 指到持久化目錄。
 
+### Render 免費帳戶沒有 Shell
+
+不用 Shell 也可以部署。MVP 最簡單做法是把第一批資料初始化寫進 Start Command，或等服務啟動後從本機呼叫 refresh endpoint。若要長期維護，建議用 GitHub Actions schedule 定期呼叫 refresh endpoint。
+
 ### Render 免費方案第一次載入很慢
 
 免費服務可能會 sleep。正式 demo 或對外測試建議升級服務，或改用不休眠的平台。
@@ -184,5 +250,6 @@ RAW_DATA_DIR=/var/data/raw
 - OSM 地圖可載入，沒有 Windy 或 RainViewer 錯誤。
 - 重新整理頁面後統計、排行、圖例仍正常。
 - SQLite 路徑在 persistent disk。
+- 第一批資料初始化流程不依賴 Render Shell。
 - 排程更新策略已確認。
 - 公開前已規劃 refresh endpoint 權限控管。
