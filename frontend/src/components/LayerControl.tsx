@@ -42,6 +42,8 @@ export const LayerControl: React.FC<LayerControlProps> = ({
                 role="tab"
                 aria-selected={activeMetric === metric}
                 style={{ flex: "0 0 auto", whiteSpace: "nowrap" }}
+                title={`${config.label}: ${config.description}`}
+                aria-label={`${config.label}: ${config.description}`}
               >
                 <span className="metric-tab-code">{config.shortLabel}</span>
                 <span>{config.label}</span>
@@ -53,7 +55,7 @@ export const LayerControl: React.FC<LayerControlProps> = ({
 
       <div className="control-group control-group-slider">
         <div className="slider-heading">
-          <label className="control-label" htmlFor="metric-min">
+          <label className="control-label" htmlFor="metric-min" title={activeConfig.description}>
             {activeConfig.label}篩選
           </label>
           <span className="slider-value">
