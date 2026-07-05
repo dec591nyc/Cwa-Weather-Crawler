@@ -20,7 +20,7 @@
 
 ## 🎯 專案核心定位與特色
 
-本專案核心是 **CWA OpenData API 的地圖監測與視覺化應用**，環境部資料則作為空氣品質觀測的延伸整合，讓地圖能呈現更完整的區域環境狀態。
+本專案定位為 **CWA OpenData API 的地圖監測與視覺化應用**。CWA 是主要資料核心，環境部資料則作為空氣品質觀測的延伸整合，讓地圖能呈現更完整的區域環境狀態。
 
 1. **OpenData API 呼叫應用**：
    後端透過中央氣象署與環境部開放 API 取得觀測資料，並將不同來源的資料格式整理為前端可直接使用的統一資料結構。
@@ -74,7 +74,7 @@ flowchart TD
 
 ```text
 ├── api/                         # FastAPI endpoints
-├── crawler/                     # CWA / MOENV API clients and data normalization
+├── data_pipeline/               # CWA / MOENV API clients, data sync and normalization
 ├── database/                    # SQLite connection, schema and initialization
 ├── data/                        # Local runtime data, ignored by git
 ├── docs/                        # Planning and cloud deployment notes
@@ -92,6 +92,16 @@ flowchart TD
 | 環境部 MOENV | `aqx_p_432` | 空氣品質觀測資料 |
 | OpenStreetMap | Map tiles | OSM 模式地圖底圖 |
 | Windy | Map Forecast API | Windy 模式風場背景 |
+
+---
+
+## ⚡ 資料載入與效能設計
+
+本專案目前沒有自行實作 Python 多執行緒或 multiprocessing。後端資料同步採用明確的 API client 流程，分別呼叫 CWA 與 MOENV OpenData API，完成資料清洗後寫入 SQLite。
+
+前端載入採用瀏覽器端並行請求設計：首頁會同時取得縣市摘要、CWA GeoJSON 測站資料、PM2.5 觀測資料與健康檢查資訊，避免多個 API 依序等待而拉長 loading 時間。手動更新資料時，也會同時觸發 CWA 與 MOENV 的 refresh endpoint，再重新載入最新觀測結果。
+
+若未來整合更多資料來源，可再評估後端加入 async HTTP client、背景任務佇列或排程服務，讓多資料源同步流程更適合長期運行。
 
 ---
 
@@ -204,7 +214,6 @@ npm run dev
 
 ## 📝 開發收穫
 
-- 專案命名應避免誤導；本專案主要是 OpenData API 呼叫、資料整理與地圖視覺化。
 - 地圖視覺化與資料真相來源需要分離；Windy 適合作為風場背景，測站數值、摘要與排名仍應由後端正規化資料提供。
 - 政府開放資料常見缺值與 sentinel value，例如 `-99`、`-999`，需要在後端清理後再交給前端呈現。
 - 環境觀測資料應明確區分 `observed_at` 與 `fetched_at`，避免使用者誤解資料新鮮度。
