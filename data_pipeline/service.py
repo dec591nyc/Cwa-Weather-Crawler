@@ -48,12 +48,9 @@ def sync_weather_observations() -> int:
         ],
         "RainfallElement": [
             "Now",
-            "Past10Min",
             "Past1hr",
-            "Past3hr",
-            "Past6Hr",
-            "Past12hr",
-            "Past24hr",
+            "DailyRainfall",
+            "TodayRainfall",
         ],
         "GeoInfo": [
             "Coordinates",
