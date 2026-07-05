@@ -82,6 +82,7 @@ function sortCounties(counties: string[]): string[] {
 
 export const App: React.FC = () => {
   const [activePage, setActivePage] = useState<AppPage>("dashboard");
+  const [windyMounted, setWindyMounted] = useState<boolean>(false);
   const [features, setFeatures] = useState<GeoJsonFeature[]>([]);
   const [pm25Observations, setPm25Observations] = useState<Pm25Observation[]>([]);
   const [counties, setCounties] = useState<string[]>([]);
@@ -171,6 +172,12 @@ export const App: React.FC = () => {
     void fetchData();
   }, []);
 
+  useEffect(() => {
+    if (activePage === "windy") {
+      setWindyMounted(true);
+    }
+  }, [activePage]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -209,6 +216,17 @@ export const App: React.FC = () => {
       [metric]: current[metric] ?? config.min,
     }));
   };
+
+  const mapLayerStyle = (visible: boolean): React.CSSProperties => ({
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    visibility: visible ? "visible" : "hidden",
+    opacity: visible ? 1 : 0,
+    pointerEvents: visible ? "auto" : "none",
+    zIndex: visible ? 2 : 1,
+  });
 
   return (
     <>
@@ -311,34 +329,41 @@ export const App: React.FC = () => {
       <main className="app-container">
         <section className="map-workspace" aria-label="台灣即時氣象地圖">
           <div className="map-frame">
-            {activePage === "windy" ? (
-              <WindyMapPage
-                features={features}
-                pm25Observations={pm25Observations}
-                selectedCounty={selectedCounty}
-                activeMetric={activeMetric}
-                metricMin={metricMin}
-              />
-            ) : loading ? (
-              <div className="map-loading-state">
-                <div className="map-loading-stack">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="spin-icon">
-                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                  </svg>
-                  <div>正在載入地圖與最新觀測資料...</div>
+            <div style={mapLayerStyle(activePage === "dashboard")}>
+              {loading ? (
+                <div className="map-loading-state">
+                  <div className="map-loading-stack">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="spin-icon">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                    </svg>
+                    <div>正在載入地圖與最新觀測資料...</div>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <>
-                <MapLibreMap
+              ) : (
+                <>
+                  <MapLibreMap
+                    features={features}
+                    pm25Observations={pm25Observations}
+                    selectedCounty={selectedCounty}
+                    activeMetric={activeMetric}
+                    metricMin={metricMin}
+                  />
+                  <Legend metric={activeMetric} />
+                </>
+              )}
+            </div>
+
+            {windyMounted && (
+              <div style={mapLayerStyle(activePage === "windy")}>
+                <WindyMapPage
                   features={features}
                   pm25Observations={pm25Observations}
                   selectedCounty={selectedCounty}
                   activeMetric={activeMetric}
                   metricMin={metricMin}
+                  isActive={activePage === "windy"}
                 />
-                <Legend metric={activeMetric} />
-              </>
+              </div>
             )}
           </div>
         </section>
