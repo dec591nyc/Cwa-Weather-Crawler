@@ -1,4 +1,4 @@
-import type { ForecastProperties, ObservationMetric, Pm25Observation } from "../types/weather.ts";
+import type { ObservationMetric, ObservationProperties, Pm25Observation } from "../types/weather.ts";
 
 export interface MetricConfig {
   id: ObservationMetric;
@@ -6,7 +6,7 @@ export interface MetricConfig {
   shortLabel: string;
   unit: string;
   source: "weather" | "airQuality";
-  valueKey: keyof ForecastProperties | keyof Pm25Observation;
+  valueKey: keyof ObservationProperties | keyof Pm25Observation;
   min: number;
   max: number;
   step: number;
@@ -20,8 +20,8 @@ export interface LegendItem { label: string; color: string; desc: string; stop: 
 
 export const metricConfigs: Record<ObservationMetric, MetricConfig> = {
   temperature: { id: "temperature", label: "氣溫", shortLabel: "TEMP", unit: "°C", source: "weather", valueKey: "temperature", min: 0, max: 40, step: 1, decimals: 1, legendTitle: "氣溫級距", emptyLabel: "無氣溫", description: "測站即時氣溫。" },
-  rainfall_10min: { id: "rainfall_10min", label: "10 分鐘降雨量", shortLabel: "10M RAIN", unit: "mm", source: "weather", valueKey: "rainfall_10min", min: 0, max: 50, step: 0.5, decimals: 1, legendTitle: "10 分鐘降雨量級距", emptyLabel: "無 10 分鐘雨量", description: "最近 10 分鐘內的降雨量，用於觀察即時強降雨。" },
-  rainfall_24h: { id: "rainfall_24h", label: "過去 24 小時雨量", shortLabel: "24H RAIN", unit: "mm", source: "weather", valueKey: "rainfall_24h", min: 0, max: 350, step: 5, decimals: 1, legendTitle: "過去 24 小時雨量級距", emptyLabel: "無 24 小時雨量", description: "過去 24 小時累積降雨量。若 API 未提供資料，前端不會補成 0。" },
+  rainfall_10min: { id: "rainfall_10min", label: "近10分降雨", shortLabel: "10M RAIN", unit: "mm", source: "weather", valueKey: "rainfall_10min", min: 0, max: 50, step: 0.5, decimals: 1, legendTitle: "近10分降雨級距", emptyLabel: "無近10分降雨", description: "最近 10 分鐘內的降雨量，用於觀察即時強降雨。" },
+  rainfall_24h: { id: "rainfall_24h", label: "近24時降雨", shortLabel: "24H RAIN", unit: "mm", source: "weather", valueKey: "rainfall_24h", min: 0, max: 350, step: 5, decimals: 1, legendTitle: "近24時降雨級距", emptyLabel: "無近24時降雨", description: "最近 24 小時累積降雨量。若 API 未提供資料，前端不會補成 0。" },
   humidity: { id: "humidity", label: "濕度", shortLabel: "RH", unit: "%", source: "weather", valueKey: "humidity", min: 0, max: 100, step: 5, decimals: 0, legendTitle: "相對濕度級距", emptyLabel: "無濕度", description: "相對濕度，數值越高代表空氣越潮濕。" },
   wind_speed: { id: "wind_speed", label: "風速", shortLabel: "WIND", unit: "m/s", source: "weather", valueKey: "wind_speed", min: 0, max: 25, step: 1, decimals: 1, legendTitle: "風速級距", emptyLabel: "無風速", description: "測站風速，適合觀察強風與陣風風險。" },
   visibility_km: { id: "visibility_km", label: "能見度", shortLabel: "VIS", unit: "km", source: "weather", valueKey: "visibility_km", min: 0, max: 30, step: 1, decimals: 1, legendTitle: "能見度級距", emptyLabel: "無能見度", description: "水平能見距離，數值越低代表霧、雨、霾或空污可能影響視線。" },
@@ -73,10 +73,10 @@ export function formatMetricValue(metric: ObservationMetric, value: number | nul
   return `${value.toFixed(config.decimals)}${config.unit}`;
 }
 
-export function getWeatherMetricValue(props: ForecastProperties, metric: ObservationMetric): number | null {
+export function getWeatherMetricValue(props: ObservationProperties, metric: ObservationMetric): number | null {
   const config = metricConfigs[metric];
   if (config.source !== "weather") return null;
-  const rawValue = props[config.valueKey as keyof ForecastProperties];
+  const rawValue = props[config.valueKey as keyof ObservationProperties];
   return typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null;
 }
 

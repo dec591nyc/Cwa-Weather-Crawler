@@ -82,7 +82,6 @@ python scripts/init_db.py && uvicorn api.main:app --host 0.0.0.0 --port $PORT
 
 ```env
 CWA_API_KEY=your_cwa_api_key_here
-CWA_DATASET_ID=F-D0047-091
 CWA_OBSERVATION_DATASET_ID=O-A0003-001
 MOENV_API_KEY=your_moenv_api_key_here
 MOENV_PM25_DATASET_ID=aqx_p_432

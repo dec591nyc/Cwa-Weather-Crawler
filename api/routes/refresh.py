@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from data_pipeline.service import sync_earthquake_observations, sync_forecasts, sync_pm25_observations, sync_rainfall_observations, sync_weather_observations
+from data_pipeline.service import sync_earthquake_observations, sync_pm25_observations, sync_rainfall_observations, sync_weather_observations
 from data_pipeline.sync_manager import sync_all_sources, sync_observation_sources
 
 router = APIRouter(prefix="/api", tags=["refresh"])
@@ -14,11 +14,6 @@ def _run_sync(sync_func):
         return {"status": "ok", "record_count": count}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
-
-
-@router.post("/refresh")
-def refresh_forecasts():
-    return _run_sync(sync_forecasts)
 
 
 @router.post("/refresh/weather")

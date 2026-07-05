@@ -104,27 +104,6 @@ CREATE TABLE IF NOT EXISTS earthquake_station_intensities (
     fetched_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS forecasts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    station_id TEXT,
-    county TEXT,
-    town TEXT,
-    forecast_start TEXT NOT NULL,
-    forecast_end TEXT,
-    weather TEXT,
-    weather_code TEXT,
-    min_temp REAL,
-    max_temp REAL,
-    temperature REAL,
-    humidity REAL,
-    pop REAL,
-    wind_speed REAL,
-    wind_direction TEXT,
-    source_dataset TEXT NOT NULL,
-    fetched_at TEXT NOT NULL,
-    FOREIGN KEY (station_id) REFERENCES stations(station_id)
-);
-
 CREATE TABLE IF NOT EXISTS fetch_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     dataset_id TEXT NOT NULL,
@@ -142,9 +121,6 @@ CREATE TABLE IF NOT EXISTS raw_snapshots (
     fetched_at TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_forecasts_station_id ON forecasts(station_id);
-CREATE INDEX IF NOT EXISTS idx_forecasts_time ON forecasts(forecast_start);
-CREATE INDEX IF NOT EXISTS idx_forecasts_county ON forecasts(county);
 CREATE INDEX IF NOT EXISTS idx_fetch_logs_dataset_time ON fetch_logs(dataset_id, fetched_at);
 CREATE INDEX IF NOT EXISTS idx_weather_obs_station_time ON weather_observations(station_id, observed_at);
 CREATE INDEX IF NOT EXISTS idx_weather_obs_county_time ON weather_observations(county, fetched_at);

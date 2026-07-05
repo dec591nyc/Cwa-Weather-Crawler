@@ -15,11 +15,15 @@ def _as_list(value: Any) -> list[Any]:
 
 def _safe_key(dataset_id: str, earthquake: dict[str, Any], index: int) -> str:
     number = get_first(earthquake, "EarthquakeNo", "earthquakeNo", "EarthquakeID", "EarthquakeId")
-    if number:
-        return str(number)
     info = get_first(earthquake, "EarthquakeInfo", "earthquakeInfo")
     origin_time = get_first(info, "OriginTime", "originTime") if isinstance(info, dict) else None
     content = get_first(earthquake, "ReportContent", "reportContent")
+    if number and not dataset_id.upper().startswith("E-A0016"):
+        return str(number)
+    if origin_time:
+        return f"{dataset_id}-{origin_time}-{str(content or number or index)[:28]}"
+    if number:
+        return str(number)
     return f"{dataset_id}-{origin_time or 'unknown'}-{str(content or index)[:28]}"
 
 

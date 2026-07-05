@@ -13,14 +13,14 @@
 - `.env`：CWA API key 留在後端，沒有直接外流到前端。
 - `data/`：local runtime SQLite、raw snapshots 與 backup；此目錄應被 git ignore。
 
-但目前實作方向仍偏向「預報資料平台」，和新的「即時性台灣氣象 + PM2.5 dashboard」目標不一致。
+但目前實作方向仍留有舊版預報平台痕跡，和新的「即時性台灣氣象 + PM2.5 dashboard」目標不一致。
 
 主要問題：
 
-- DB schema 以 `forecasts` 為核心，容易把 forecast、observation、air quality 混在一起。
-- crawler 目前綁定單一 `CWA_DATASET_ID` 與 `normalize_f_d0047_091`，不利於改成多資料源。
-- FastAPI endpoint 以 `/api/forecast/*` 和 `/api/temperature/geojson` 為主，資料模型過窄。
-- 前端 TypeScript type 仍是 `ForecastProperties`，但畫面文字已混用觀測資料概念。
+- DB schema 曾以預報資料為核心，容易把 observation 與 air quality 混在一起。
+- crawler 與 sync manager 已改成多資料源入口，應避免回到單一資料集設定。
+- FastAPI endpoint 應以 `/api/weather/*`、`/api/air-quality/*`、`/api/summary/*` 為主。
+- 前端 TypeScript type 應對齊觀測資料模型，避免沿用舊預報命名。
 - RainViewer 雷達/衛星疊圖曾集中在 `MapLibreMap.tsx`，因 tile zoom 限制與體驗不穩，已決策自主 dashboard 移除。
 - 現有 `.env` 有載入 CWA key，但 live probe 對 CWA API 回傳 HTTP 401，因此站數、縣市覆蓋率、欄位缺值率還不能視為已驗證。
 
@@ -40,7 +40,6 @@ MVP 包含：
 
 MVP 不包含：
 
-- 未來天氣預報。
 - 長期氣候歷史分析。
 - 綜合空品分數 dashboard。
 - 機器學習、AI 預測、年度/季節/極端氣候統計。
@@ -52,7 +51,7 @@ MVP 不包含：
 - CWA 官方 OpenAPI：`https://opendata.cwa.gov.tw/apidoc/v1`
 - CWA 測站清單參考：`https://hdps.cwa.gov.tw/static/state.html`
 - MOENV 官方 OpenAPI：`https://data.moenv.gov.tw/swagger/openapi.yaml`
-- Windy Map Forecast API docs / pricing；目前只作為風場視覺背景，不作為數據真相來源。
+- Windy 視覺地圖 API docs / pricing；目前只作為風場視覺背景，不作為數據真相來源。
 
 實測狀態：
 
@@ -67,13 +66,11 @@ MVP 不包含：
 |---|---|---:|---|---:|---|---|---|---|---|---|---|---|---|---|---|---:|---:|---|
 | 氣象觀測站 10 分鐘綜觀氣象資料 | `O-A0003-001` | 觀測 | 官方名稱為 10 分鐘資料 | 363 筆，22 縣市 | 有，`GeoInfo=CountyName,TownName` | 有，`GeoInfo=Coordinates` | 有，缺值約 5% | 有，`DailyHigh`, `DailyLow` | 有，目前以 `Now` 解析為 rainfall，需在 UI wording 保守標示 | 有，缺值約 5% | 有，缺值約 5% | 有，缺值約 5% | 有但缺值約 91.7% | 無 | 非長期歷史來源 | 9/10 | 9/10 | 確定作為 MVP 主氣象 API；UV 不列核心。 |
 | 氣象觀測站全測站逐時氣象資料 | `O-A0001-001` | 觀測 | 官方名稱為逐時資料 | 待有效 key | 有，`GeoInfo=CountyName,TownName` | 有，`GeoInfo=Coordinates` | 有，`AirTemperature` | 有，`DailyHigh`, `DailyLow` | 可能由 `Now` 表示，需確認 | 有 | 有 | 有 | 官方 enum 未列 `UVIndex` | 無 | 非長期歷史來源 | 8/10 | 8/10 | 若 `O-A0003-001` 覆蓋不足或缺值過高，改用此 API。 |
-| 鄉鎮天氣預報全臺灣各鄉鎮市區預報資料 | `F-D0047-093` | 預報 | 預報更新 | 非 MVP 重點 | 有預報地點 | 非測站觀測模型 | 依 element | 依 element | 依 element | 依 element | 依 element | 依 element | 非主資料 | 無 | 預報期間 | 5/10 | 3/10 | MVP 不使用，除非產品回到預報方向。 |
-| 鄉鎮天氣預報臺灣未來 1 週 | `F-D0047-091` | 預報 | 1 週預報 | 目前程式使用 | 有 | 現有 normalizer 嘗試解析 | 有 | 有 | PoP，不是實測降雨 | 有 | 有 | 有 | 非主資料 | 無 | 預報期間 | 5/10 | 2/10 | 現有來源，但不作為新 MVP 核心。 |
 | 空氣品質監測即時資料 | `aqx_p_432` | 空品即時狀態 | 待環境部實際更新節奏確認 | 84 筆，22 縣市 | 有 | 有 | 非氣象主資料 | 無 | 無 | 不作為氣象來源 | 不作為氣象來源 | 無 | 無 | 無 | 即時空品 | 9/10 | 9/10 | 確定作為 MVP 空氣污染物來源；前端使用 PM2.5、PM10、O3、CO、SO2、NO2 等具體測項。 |
 | 細懸浮微粒資料 PM2.5 | `aqx_p_02` | PM2.5 | 待有效 key 確認 | 待有效 key | 待驗證 | 待驗證 | 無 | 無 | 無 | 無 | 無 | 無 | 無 | 無 | 未確認 | 7/10 | 7/10 | 若比 `aqx_p_432` 更乾淨且 metadata 足夠，可作 PM2.5 主來源。 |
 | 鹿林山紫外線即時監測資料 | `uv_s_01` | UV | 即時資料集名稱 | 可能很有限 | 不適合全台 | 待驗證 | 無 | 無 | 無 | 無 | 無 | 無 | 有，但疑似單站/特定站 | 無 | 即時 UV | 4/10 | 2/10 | 不作 MVP 全台 UV 主來源。 |
 | 紫外線測站位置圖 | `gisepa_p_26` | UV metadata | 靜態/位置資料 | 待驗證 | 待驗證 | 可能有 | 無 | 無 | 無 | 無 | 無 | 無 | 只有測站位置 | 無 | metadata | 4/10 | 2/10 | 只能輔助，不能提供 UV 即時值。 |
-| Windy Map Forecast API | 視覺 API | 地圖/forecast overlay | 依模型與方案 | 非測站資料 | 不是統計來源 | 地圖座標 | overlay | overlay | overlay | overlay | overlay | overlay | 需依方案/overlay 支援確認 | 有 satellite/cloud 等視覺層 | forecast 視覺 | 7/10 | 視覺輔助 | 作為風場背景與地圖視覺化輔助，不作為後端統計來源。 |
+| Windy 視覺地圖 API | 視覺 API | 地圖風場 overlay | 依模型與方案 | 非測站資料 | 不是統計來源 | 地圖座標 | overlay | overlay | overlay | overlay | overlay | overlay | 需依方案/overlay 支援確認 | 有 satellite/cloud 等視覺層 | 視覺背景 | 7/10 | 視覺輔助 | 作為風場背景與地圖視覺化輔助，不作為後端統計來源。 |
 
 ## 5. CWA API 選擇
 
@@ -84,7 +81,7 @@ MVP 不包含：
 - 官方 summary 是「氣象觀測站-10分鐘綜觀氣象資料」。
 - 官方 `WeatherElement` enum 包含 MVP 所需的 `AirTemperature`、`WindDirection`、`WindSpeed`、`RelativeHumidity`、`DailyHigh`、`DailyLow`、`UVIndex`。
 - 官方 `GeoInfo` enum 包含 `Coordinates`、`StationAltitude`、`CountyName`、`TownName`、`CountyCode`、`TownCode`。
-- 比 forecast dataset 更符合即時 dashboard 定位。
+- 比非觀測型資料更符合即時 dashboard 定位。
 
 備選：`O-A0001-001`。
 
@@ -154,7 +151,7 @@ MVP 規則：
 
 - RainViewer overlay 在目前 zoom/tile 條件下容易出現 `Zoom Level Not Supported`，視覺價值不足。
 - Windy 需要前端載入第三方 script，且 production key/domain 授權、Testing key 限制、單一 instance lifecycle 都會增加部署風險。
-- MVP 的核心價值是 CWA/MOENV 測站觀測、縣市統計與排行，不是第三方 forecast overlay。
+- MVP 的核心價值是 CWA/MOENV 測站觀測、縣市統計與排行，不是第三方視覺 overlay。
 
 後續若要恢復天氣視覺層，必須先滿足：
 
@@ -210,7 +207,7 @@ PM2.5：
 - `raw_snapshots`
 - `fetch_logs`
 
-不要把 forecast、observation、air quality 混進同一張語意不清的 table。
+不要把 weather observation 與 air quality 混進同一張語意不清的 table。
 
 ## 11. Dashboard 功能範圍
 
@@ -240,7 +237,6 @@ MVP 不做：
 
 - 綜合空品分數 dashboard。
 - 多污染物空污研究。
-- 未來天氣預報。
 - 長期歷史氣候分析。
 - 多年資料回補。
 - 年度比較圖。
@@ -286,7 +282,7 @@ MVP 不做：
 9. 加入 CWA 與 PM2.5 markers。
 10. 加入縣市統計、表格、排行。
 11. 更新 README 與 `.env.example`。
-12. 新 API 穩定後，再移除或降級舊 forecast UI/API。
+12. 新 API 穩定後，持續清理舊版非觀測功能殘留。
 
 ## 15. 測試方式
 

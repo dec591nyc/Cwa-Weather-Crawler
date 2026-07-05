@@ -30,6 +30,8 @@ SCHEMA_MIGRATIONS = {
     },
 }
 
+REMOVED_TABLES = ("forecasts",)
+
 
 def _column_exists(conn: sqlite3.Connection, table_name: str, column_name: str) -> bool:
     if table_name not in SCHEMA_MIGRATIONS:
@@ -46,10 +48,16 @@ def _apply_schema_migrations(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE " + table_name + " ADD COLUMN " + column_name + " " + column_type)
 
 
+def _drop_removed_tables(conn: sqlite3.Connection) -> None:
+    for table_name in REMOVED_TABLES:
+        conn.execute("DROP TABLE IF EXISTS " + table_name)
+
+
 def init_db() -> None:
     schema_path = Path(__file__).with_name("schema.sql")
     with get_connection(settings.database_path) as conn:
         conn.executescript(schema_path.read_text(encoding="utf-8"))
+        _drop_removed_tables(conn)
         _apply_schema_migrations(conn)
 
 

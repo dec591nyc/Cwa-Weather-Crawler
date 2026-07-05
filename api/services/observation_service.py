@@ -20,7 +20,14 @@ def get_health_status() -> dict:
 
 def list_counties() -> dict:
     with get_connection() as conn:
-        rows = conn.execute("SELECT DISTINCT county FROM forecasts WHERE county IS NOT NULL ORDER BY county").fetchall()
+        rows = conn.execute(
+            """
+            SELECT DISTINCT county FROM weather_observations WHERE county IS NOT NULL
+            UNION
+            SELECT DISTINCT county FROM air_quality_observations WHERE county IS NOT NULL
+            ORDER BY county
+            """
+        ).fetchall()
     return {"counties": [row["county"] for row in rows]}
 
 
@@ -90,32 +97,6 @@ def county_summary() -> dict:
             }
         )
     return {"count": len(summaries), "summaries": summaries}
-
-
-def latest_forecast(county: str | None = None, limit: int = 100) -> dict:
-    sql = "SELECT * FROM forecasts WHERE fetched_at = (SELECT MAX(fetched_at) FROM forecasts)"
-    params: list[object] = []
-    if county:
-        sql += " AND county = ?"
-        params.append(county)
-    sql += " ORDER BY county, forecast_start LIMIT ?"
-    params.append(limit)
-    with get_connection() as conn:
-        rows = conn.execute(sql, params).fetchall()
-    return {"count": len(rows), "forecasts": [dict(row) for row in rows]}
-
-
-def forecast_history(county: str | None = None, limit: int = 500) -> dict:
-    sql = "SELECT * FROM forecasts WHERE 1=1"
-    params: list[object] = []
-    if county:
-        sql += " AND county = ?"
-        params.append(county)
-    sql += " ORDER BY fetched_at DESC, forecast_start ASC LIMIT ?"
-    params.append(limit)
-    with get_connection() as conn:
-        rows = conn.execute(sql, params).fetchall()
-    return {"count": len(rows), "forecasts": [dict(row) for row in rows]}
 
 
 def _latest_rows(table: str, county: str | None = None) -> list[dict]:

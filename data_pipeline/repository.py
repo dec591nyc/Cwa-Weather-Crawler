@@ -23,32 +23,6 @@ def _insert_record(conn, table_name: str, columns: list[str], record: dict[str, 
     conn.execute(sql, tuple(record.get(column) for column in columns))
 
 
-def save_forecasts(records: list[dict[str, Any]]) -> int:
-    if not records:
-        return 0
-    forecast_columns = ["station_id", "county", "town", "forecast_start", "forecast_end", "weather", "weather_code", "min_temp", "max_temp", "temperature", "humidity", "pop", "wind_speed", "wind_direction", "source_dataset", "fetched_at"]
-    with get_connection() as conn:
-        for record in records:
-            if record.get("station_id"):
-                conn.execute(
-                    """
-                    INSERT INTO stations(station_id, station_name, county, town, lat, lon, altitude_m, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(station_id) DO UPDATE SET
-                        station_name=excluded.station_name,
-                        county=excluded.county,
-                        town=excluded.town,
-                        lat=excluded.lat,
-                        lon=excluded.lon,
-                        altitude_m=excluded.altitude_m,
-                        updated_at=excluded.updated_at
-                    """,
-                    (record.get("station_id"), record.get("station_name") or record.get("station_id"), record.get("county"), record.get("town"), record.get("lat"), record.get("lon"), record.get("altitude_m"), record.get("fetched_at")),
-                )
-            _insert_record(conn, "forecasts", forecast_columns, record)
-    return len(records)
-
-
 def save_weather_observations(records: list[dict[str, Any]]) -> int:
     if not records:
         return 0
@@ -91,7 +65,18 @@ def save_earthquake_observations(payload: dict[str, list[dict[str, Any]]]) -> in
         return 0
     event_columns = ["earthquake_key", "source_dataset", "report_type", "report_color", "report_content", "report_image_uri", "web_uri", "earthquake_time", "magnitude_type", "magnitude_value", "depth_km", "location", "epicenter_lat", "epicenter_lon", "max_intensity", "fetched_at"]
     station_columns = ["earthquake_key", "source_dataset", "area_name", "county", "station_name", "station_lat", "station_lon", "station_intensity", "distance_km", "pga", "pgv", "fetched_at"]
+    event_keys_by_dataset: dict[str, set[str]] = {}
+    for event in events:
+        dataset_id = event.get("source_dataset")
+        event_key = event.get("earthquake_key")
+        if dataset_id and event_key:
+            event_keys_by_dataset.setdefault(str(dataset_id), set()).add(str(event_key))
     with get_connection() as conn:
+        for dataset_id, event_keys in event_keys_by_dataset.items():
+            placeholders = ", ".join(["?"] * len(event_keys))
+            params = [dataset_id, *event_keys]
+            conn.execute(f"DELETE FROM earthquake_station_intensities WHERE source_dataset = ? AND earthquake_key NOT IN ({placeholders})", params)
+            conn.execute(f"DELETE FROM earthquake_events WHERE source_dataset = ? AND earthquake_key NOT IN ({placeholders})", params)
         for event in events:
             conn.execute(
                 """

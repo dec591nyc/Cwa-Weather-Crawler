@@ -24,7 +24,7 @@
 
 1. **OpenData API 呼叫應用**：後端透過中央氣象署與環境部開放 API 取得觀測資料，整理為前端可直接使用的統一資料結構。
 2. **GeoMap 地圖監測介面**：前端以地圖作為主要互動入口，讓使用者能直接從地理分布理解各地測站狀態。
-3. **空汙 / 氣象指標整合**：目前支援氣溫、10 分鐘降雨量、當天累積雨量、濕度、風速、能見度、PM2.5 與多項空氣污染物觀測。
+3. **空汙 / 氣象指標整合**：目前支援氣溫、近10分降雨、近24時降雨、濕度、風速、能見度、PM2.5 與多項空氣污染物觀測。
 4. **雙地圖視覺化設計**：OSM 底圖提供清楚的測站分布視角；Windy 提供風場背景並疊加同一組觀測指標圓點。
 5. **可擴充的觀測資料流程**：API client、normalization、repository、sync manager 與 FastAPI route layer 分開設計，方便後續加入雨量、地震、日出日落與警特報資料。
 
@@ -103,7 +103,6 @@ flowchart TD
 | --- | --- | --- | --- |
 | 中央氣象署 CWA | `O-A0003-001` | 即時氣象觀測、能見度、雨量欄位預留 | Active |
 | 環境部 MOENV | `aqx_p_432` | 空品狀態、指標污染物、PM2.5、PM10、O3、CO、NO2、SO2 | Active |
-| 中央氣象署 CWA | `F-D0047-093` | 鄉鎮天氣預報 | Optional |
 | 中央氣象署 CWA | `O-A0001-001` | 自動氣象站觀測 | Candidate |
 | 中央氣象署 CWA | `O-A0002-001` | 自動雨量站與累積雨量專層 | Candidate |
 | 中央氣象署 CWA | `A-B0062-001` | 日出日沒 | Candidate，需要行政區或 geocode join |
@@ -179,12 +178,10 @@ npm run dev
 | `/api/pm25/latest` | GET | 最新空氣品質觀測資料，保留相容舊命名 |
 | `/api/air-quality/latest` | GET | 最新空氣品質觀測資料 |
 | `/api/summary/counties` | GET | 縣市層級摘要資料 |
-| `/api/forecast/latest` | GET | 最新預報資料 |
-| `/api/forecast/history` | GET | 預報歷史資料 |
 | `/api/refresh/weather` | POST | 更新 CWA 氣象觀測資料 |
 | `/api/refresh/air-quality` | POST | 更新 MOENV 空氣品質資料 |
 | `/api/refresh/observations` | POST | 透過 sync manager 更新主要觀測資料來源 |
-| `/api/refresh/all` | POST | 透過 sync manager 更新 forecast、weather 與 air quality |
+| `/api/refresh/all` | POST | 透過 sync manager 更新全部已接入觀測資料來源 |
 
 Legacy note：舊的 `/api/temperature/geojson` 已移除，現在統一使用 `/api/weather/stations.geojson`。
 

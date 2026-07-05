@@ -32,7 +32,7 @@ class CwaClient:
         try:
             response = requests.get(url, params=params, timeout=30, verify=False)
         except requests.RequestException as exc:
-            raise RuntimeError(f"CWA request failed before response: {exc.__class__.__name__}") from exc
+            raise RuntimeError(f"CWA request failed before response: {exc.__class__.__name__}") from None
         elapsed_ms = int((time.perf_counter() - start) * 1000)
 
         if response.status_code == 401:

@@ -9,3 +9,5 @@ __pycache__/
 node_modules/
 frontend-dev.log
 frontend-dev.err.log
+backend-dev.log
+backend-dev.err.log

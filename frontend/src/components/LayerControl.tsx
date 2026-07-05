@@ -19,33 +19,33 @@ const layerOptions: Array<{ id: DataLayer; label: string; code: string; descript
 export const LayerControl: React.FC<LayerControlProps> = ({ dataLayer, onDataLayerChange, activeMetric, onMetricChange, metricMin, onMetricMinChange }) => {
   const activeConfig = metricConfigs[activeMetric];
   return (
-    <section className="control-dock" aria-label="地圖控制" style={{ gridTemplateColumns: "minmax(240px, 360px) minmax(0, 1fr) minmax(280px, 360px)", justifyContent: "stretch" }}>
-      <div className="control-group control-group-metric" style={{ maxWidth: "none" }}>
+    <section className="control-dock" aria-label="地圖控制">
+      <div className="control-group control-group-layer">
         <div className="control-label">資料圖層</div>
-        <div className="metric-tabs" role="tablist" aria-label="資料圖層" style={{ flexWrap: "nowrap", overflowX: "auto", width: "100%" }}>
+        <div className="metric-tabs metric-tabs-scroll" role="tablist" aria-label="資料圖層">
           {layerOptions.map((layer) => (
-            <button key={layer.id} type="button" className={`metric-tab ${dataLayer === layer.id ? "active" : ""}`} onClick={() => onDataLayerChange(layer.id)} role="tab" aria-selected={dataLayer === layer.id} style={{ flex: "0 0 auto", whiteSpace: "nowrap" }} title={`${layer.label}: ${layer.description}`} aria-label={`${layer.label}: ${layer.description}`}>
+            <button key={layer.id} type="button" className={`metric-tab ${dataLayer === layer.id ? "active" : ""}`} onClick={() => onDataLayerChange(layer.id)} role="tab" aria-selected={dataLayer === layer.id} title={`${layer.label}: ${layer.description}`} aria-label={`${layer.label}: ${layer.description}`}>
               <span className="metric-tab-code">{layer.code}</span>
               <span>{layer.label}</span>
             </button>
           ))}
         </div>
       </div>
-      <div className="control-group control-group-metric" style={{ maxWidth: "none", opacity: dataLayer === "earthquakes" ? 0.62 : 1 }}>
+      <div className={`control-group control-group-metric ${dataLayer === "earthquakes" ? "is-muted" : ""}`}>
         <div className="control-label">觀測指標</div>
         {dataLayer === "earthquakes" ? (
-          <div className="metric-tabs" aria-label="地震圖層說明" style={{ width: "100%" }}>
-            <button type="button" className="metric-tab active" style={{ flex: "0 0 auto", whiteSpace: "nowrap" }}>
+          <div className="metric-tabs" aria-label="地震圖層說明">
+            <button type="button" className="metric-tab active">
               <span className="metric-tab-code">EQ</span>
               <span>震央 / 規模 / 震度測站</span>
             </button>
           </div>
         ) : (
-          <div className="metric-tabs" role="tablist" aria-label="觀測指標" style={{ flexWrap: "nowrap", overflowX: "auto", width: "100%" }}>
+          <div className="metric-tabs metric-tabs-scroll" role="tablist" aria-label="觀測指標">
             {metricOrder.map((metric) => {
               const config = metricConfigs[metric];
               return (
-                <button key={metric} type="button" className={`metric-tab ${activeMetric === metric ? "active" : ""}`} onClick={() => onMetricChange(metric)} role="tab" aria-selected={activeMetric === metric} style={{ flex: "0 0 auto", whiteSpace: "nowrap" }} title={`${config.label}: ${config.description}`} aria-label={`${config.label}: ${config.description}`}>
+                <button key={metric} type="button" className={`metric-tab ${activeMetric === metric ? "active" : ""}`} onClick={() => onMetricChange(metric)} role="tab" aria-selected={activeMetric === metric} title={`${config.label}: ${config.description}`} aria-label={`${config.label}: ${config.description}`}>
                   <span className="metric-tab-code">{config.shortLabel}</span>
                   <span>{config.label}</span>
                 </button>

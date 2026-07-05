@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass
 from data_pipeline.service import (
     sync_auto_station_observations,
     sync_earthquake_observations,
-    sync_forecasts,
     sync_pm25_observations,
     sync_rainfall_observations,
     sync_weather_observations,
@@ -48,7 +47,6 @@ def sync_observation_sources() -> dict:
 
 def sync_all_sources() -> dict:
     jobs: list[tuple[str, Callable[[], int]]] = [
-        ("forecast", sync_forecasts),
         ("weather", sync_weather_observations),
         ("auto_station", sync_auto_station_observations),
         ("rainfall", sync_rainfall_observations),
