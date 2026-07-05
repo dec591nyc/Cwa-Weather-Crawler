@@ -118,9 +118,11 @@ def save_weather_observations(records: list[dict[str, Any]]) -> int:
                 """
                 INSERT INTO weather_observations(
                     station_id, station_name, county, town, lat, lon, altitude_m, observed_at,
-                    temperature, rainfall, wind_speed, wind_direction, humidity, uv_index,
-                    daily_high, daily_low, weather, source_dataset, fetched_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    temperature, rainfall, rainfall_10min, rainfall_1h, rainfall_3h, rainfall_6h,
+                    rainfall_12h, rainfall_24h, wind_speed, wind_direction, humidity,
+                    visibility_km, visibility_description, uv_index, daily_high, daily_low,
+                    weather, source_dataset, fetched_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.get("station_id"),
@@ -133,9 +135,17 @@ def save_weather_observations(records: list[dict[str, Any]]) -> int:
                     record.get("observed_at"),
                     record.get("temperature"),
                     record.get("rainfall"),
+                    record.get("rainfall_10min"),
+                    record.get("rainfall_1h"),
+                    record.get("rainfall_3h"),
+                    record.get("rainfall_6h"),
+                    record.get("rainfall_12h"),
+                    record.get("rainfall_24h"),
                     record.get("wind_speed"),
                     record.get("wind_direction"),
                     record.get("humidity"),
+                    record.get("visibility_km"),
+                    record.get("visibility_description"),
                     record.get("uv_index"),
                     record.get("daily_high"),
                     record.get("daily_low"),
@@ -157,8 +167,10 @@ def save_air_quality_observations(records: list[dict[str, Any]]) -> int:
                 """
                 INSERT INTO air_quality_observations(
                     station_id, station_name, county, lat, lon, observed_at,
-                    pm25, pm25_avg, source_dataset, fetched_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    aqi, status, pollutant, pm25, pm25_avg, pm10, pm10_avg,
+                    so2, co, co_8hr, o3, o3_8hr, no2, nox, no,
+                    source_dataset, fetched_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.get("station_id"),
@@ -167,8 +179,21 @@ def save_air_quality_observations(records: list[dict[str, Any]]) -> int:
                     record.get("lat"),
                     record.get("lon"),
                     record.get("observed_at"),
+                    record.get("aqi"),
+                    record.get("status"),
+                    record.get("pollutant"),
                     record.get("pm25"),
                     record.get("pm25_avg"),
+                    record.get("pm10"),
+                    record.get("pm10_avg"),
+                    record.get("so2"),
+                    record.get("co"),
+                    record.get("co_8hr"),
+                    record.get("o3"),
+                    record.get("o3_8hr"),
+                    record.get("no2"),
+                    record.get("nox"),
+                    record.get("no"),
                     record.get("source_dataset"),
                     record.get("fetched_at"),
                 ),
