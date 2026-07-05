@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import air_quality, forecast, health, refresh, summary, weather
+from api.routes import air_quality, forecast, health, refresh, sources, summary, weather
 
 app = FastAPI(title="CWA GeoMap Monitor API")
 
@@ -19,5 +19,6 @@ app.include_router(health.router)
 app.include_router(refresh.router)
 app.include_router(weather.router)
 app.include_router(air_quality.router)
+app.include_router(sources.router)
 app.include_router(summary.router)
 app.include_router(forecast.router)
