@@ -18,9 +18,20 @@ declare global {
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
+const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.4.0/dist/leaflet.css";
 const LEAFLET_SCRIPT_URL = "https://unpkg.com/leaflet@1.4.0/dist/leaflet.js";
 const WINDY_SCRIPT_URL = "https://api.windy.com/assets/map-forecast/libBoot.js";
 const WINDY_INIT_TIMEOUT_MS = 15000;
+
+function loadStyleOnce(href: string): void {
+  const existing = document.querySelector<HTMLLinkElement>(`link[href="${href}"]`);
+  if (existing) return;
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+}
 
 function loadScriptOnce(src: string, label: string): Promise<void> {
   const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
@@ -64,7 +75,7 @@ function waitForWindyInit(timeoutMs = WINDY_INIT_TIMEOUT_MS): Promise<void> {
       if (Date.now() - startedAt >= timeoutMs) {
         reject(
           new Error(
-            "Windy library loaded, but windyInit was not registered. Check the Windy key domain authorization, browser blockers, console network errors, or Leaflet loading."
+            "Windy library loaded, but windyInit was not registered. Check Windy key domain authorization, browser blockers, console network errors, and Leaflet CSS/JS loading."
           )
         );
         return;
@@ -78,6 +89,8 @@ function waitForWindyInit(timeoutMs = WINDY_INIT_TIMEOUT_MS): Promise<void> {
 }
 
 function loadLeafletScript(): Promise<void> {
+  loadStyleOnce(LEAFLET_CSS_URL);
+
   if (window.L) {
     return Promise.resolve();
   }
@@ -152,6 +165,12 @@ export const WindyMapPage: React.FC = () => {
 
         const mountWindy = (api: WindyApi) => {
           window.__windyApi = api;
+          if (api.map?.setView) {
+            api.map.setView([23.7, 121], 7);
+          }
+          if (api.map?.invalidateSize) {
+            window.setTimeout(() => api.map.invalidateSize(), 200);
+          }
           setStatus("ready");
           setMessage("");
           void renderMarkers(api).catch((error: any) => {
@@ -177,7 +196,6 @@ export const WindyMapPage: React.FC = () => {
             lon: 121,
             zoom: 7,
             overlay: "wind",
-            product: "ecmwf",
           },
           mountWindy
         );
@@ -232,7 +250,7 @@ export const WindyMapPage: React.FC = () => {
         color: "#ffffff",
         weight: 1,
         fillColor: weatherColor(temp),
-        fillOpacity: 0.88,
+        fillOpacity: 0.9,
       });
       marker.bindPopup(`
         <div class="windy-popup">
@@ -258,7 +276,7 @@ export const WindyMapPage: React.FC = () => {
         color: "#111827",
         weight: 1,
         fillColor: pm25Color(pm25),
-        fillOpacity: 0.72,
+        fillOpacity: 0.78,
       });
       marker.bindPopup(`
         <div class="windy-popup">
@@ -276,16 +294,47 @@ export const WindyMapPage: React.FC = () => {
   };
 
   return (
-    <main className="windy-page" aria-label="Windy 風場地圖">
-      <div className="windy-map-shell">
-        <div id="windy" ref={containerRef} />
+    <div
+      className="windy-page"
+      aria-label="Windy 風場地圖"
+      style={{ width: "100%", height: "100%", minHeight: 0, padding: 0, background: "transparent" }}
+    >
+      <div
+        className="windy-map-shell"
+        style={{ width: "100%", height: "100%", minHeight: 0, border: 0, borderRadius: 0 }}
+      >
+        <div id="windy" ref={containerRef} style={{ width: "100%", height: "100%" }} />
         <div className="windy-status-panel">
           <div className={`status-dot ${status === "error" ? "stale" : ""}`} />
           <span>{status === "ready" ? "Windy ready" : status === "loading" ? "Loading Windy" : status}</span>
           {message && <strong>{message}</strong>}
           <small>CWA {weatherCount} / PM2.5 {pm25Count}</small>
         </div>
+        <div
+          aria-label="Windy visual legend"
+          style={{
+            position: "absolute",
+            right: "1rem",
+            bottom: "1rem",
+            zIndex: 1200,
+            display: "grid",
+            gap: "0.45rem",
+            minWidth: 220,
+            border: "1px solid rgba(15, 23, 42, 0.16)",
+            borderRadius: 8,
+            background: "rgba(255, 255, 255, 0.94)",
+            padding: "0.75rem",
+            boxShadow: "0 10px 22px rgba(15, 23, 42, 0.18)",
+            fontSize: "0.78rem",
+            fontWeight: 800,
+          }}
+        >
+          <strong style={{ fontSize: "0.88rem" }}>Windy + 測站疊圖</strong>
+          <span>背景：Windy 風場</span>
+          <span>小圓點：CWA 氣象觀測站，顏色代表氣溫</span>
+          <span>大圓點：MOENV PM2.5 測站，顏色代表空品</span>
+        </div>
       </div>
-    </main>
+    </div>
   );
 };
