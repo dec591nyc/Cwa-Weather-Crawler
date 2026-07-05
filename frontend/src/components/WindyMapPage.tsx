@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   formatMetricValue,
+  getAirQualityMetricValue,
   getMetricColor,
   getMetricLegendItems,
-  getPm25MetricValue,
   getWeatherMetricValue,
   metricConfigs,
 } from "../lib/colorScale.ts";
@@ -158,7 +158,7 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
   const [status, setStatus] = useState<WindyStatus>("idle");
   const [message, setMessage] = useState<string>("");
   const [weatherCount, setWeatherCount] = useState<number>(0);
-  const [pm25Count, setPm25Count] = useState<number>(0);
+  const [airQualityCount, setAirQualityCount] = useState<number>(0);
 
   const renderMarkers = useCallback((api: WindyApi) => {
     const L = window.L;
@@ -180,11 +180,11 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
       const rows = pm25Observations
         .filter((obs) => obs.lat !== null && obs.lon !== null)
         .filter((obs) => !selectedCounty || obs.county === selectedCounty)
-        .map((obs) => ({ obs, value: getPm25MetricValue(obs) }))
+        .map((obs) => ({ obs, value: getAirQualityMetricValue(obs, activeMetric) }))
         .filter(({ value }) => value !== null && value >= metricMin);
 
       setWeatherCount(0);
-      setPm25Count(rows.length);
+      setAirQualityCount(rows.length);
 
       for (const { obs, value } of rows) {
         const marker = L.circleMarker([obs.lat, obs.lon], {
@@ -201,8 +201,10 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
             <span>${obs.county || ""} · 環境部空品觀測</span>
             <div class="popup-metric-large">${config.label} ${formatMetricValue(activeMetric, value)}</div>
             <dl>
+              <dt>AQI</dt><dd>${obs.aqi ?? "-"}</dd>
+              <dt>狀態</dt><dd>${obs.status ?? "-"}</dd>
               <dt>PM2.5</dt><dd>${obs.pm25 ?? "-"}</dd>
-              <dt>PM2.5 平均</dt><dd>${obs.pm25_avg ?? "-"}</dd>
+              <dt>PM10</dt><dd>${obs.pm10 ?? "-"}</dd>
               <dt>時間</dt><dd>${observedText(obs.observed_at || obs.fetched_at)}</dd>
             </dl>
           </div>
@@ -221,7 +223,7 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
       .filter(({ value }) => value !== null && value >= metricMin);
 
     setWeatherCount(rows.length);
-    setPm25Count(0);
+    setAirQualityCount(0);
 
     for (const { feature, value } of rows) {
       const [lon, lat] = feature.geometry.coordinates;
@@ -241,9 +243,11 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
           <div class="popup-metric-large">${config.label} ${formatMetricValue(activeMetric, value)}</div>
           <dl>
             <dt>氣溫</dt><dd>${props.temperature ?? "-"} °C</dd>
-            <dt>降水量</dt><dd>${props.rainfall ?? "-"} mm</dd>
+            <dt>即時降水</dt><dd>${props.rainfall ?? "-"} mm</dd>
+            <dt>24h累積雨量</dt><dd>${props.rainfall_24h ?? "-"} mm</dd>
             <dt>濕度</dt><dd>${props.humidity ?? "-"}%</dd>
             <dt>風速</dt><dd>${props.wind_speed ?? "-"} m/s</dd>
+            <dt>能見度</dt><dd>${props.visibility_description || props.visibility_km || "-"}</dd>
             <dt>時間</dt><dd>${observedText(props.observed_at || props.fetched_at)}</dd>
           </dl>
         </div>
@@ -330,7 +334,7 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
   }, [isActive, status]);
 
   const config = metricConfigs[activeMetric];
-  const activeCount = config.source === "airQuality" ? pm25Count : weatherCount;
+  const activeCount = config.source === "airQuality" ? airQualityCount : weatherCount;
   const legendItems = getMetricLegendItems(activeMetric);
 
   return (
