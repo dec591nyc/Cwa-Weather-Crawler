@@ -19,12 +19,8 @@ export interface ForecastProperties {
   fetched_at: string;
   observed_at?: string | null;
   rainfall?: number | null;
-  rainfall_10min?: number | null;
   rainfall_1h?: number | null;
-  rainfall_3h?: number | null;
-  rainfall_6h?: number | null;
-  rainfall_12h?: number | null;
-  rainfall_24h?: number | null;
+  rainfall_today?: number | null;
   visibility_km?: number | null;
   visibility_description?: string | null;
   uv_index?: number | null;
@@ -35,19 +31,23 @@ export interface ForecastProperties {
 
 export type ObservationMetric =
   | "temperature"
-  | "rainfall"
-  | "rainfall_24h"
+  | "rainfall_1h"
+  | "rainfall_today"
   | "humidity"
   | "wind_speed"
   | "visibility_km"
-  | "aqi"
-  | "pm25";
+  | "pm25"
+  | "pm10"
+  | "o3_8hr"
+  | "co_8hr"
+  | "so2"
+  | "no2";
 
 export interface GeoJsonFeature {
   type: "Feature";
   geometry: {
     type: "Point";
-    coordinates: [number, number]; // [lon, lat]
+    coordinates: [number, number];
   };
   properties: ForecastProperties;
 }
@@ -106,16 +106,21 @@ export interface CountySummary {
   pm25_station_count: number;
   temperature: NumericStats;
   rainfall: NumericStats;
-  rainfall_24h: NumericStats;
+  rainfall_1h: NumericStats;
+  rainfall_today: NumericStats;
   humidity: NumericStats;
   wind_speed: NumericStats;
   wind_direction_avg: number | null;
   visibility_km: NumericStats;
   uv_index: NumericStats;
-  aqi: NumericStats;
   pm25: NumericStats;
   pm25_avg: NumericStats;
   pm10: NumericStats;
+  pm10_avg: NumericStats;
+  o3_8hr: NumericStats;
+  co_8hr: NumericStats;
+  so2: NumericStats;
+  no2: NumericStats;
 }
 
 export interface CountySummaryResponse {
