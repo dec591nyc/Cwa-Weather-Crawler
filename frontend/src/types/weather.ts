@@ -45,18 +45,10 @@ export type ObservationMetric =
   | "so2"
   | "no2";
 
-export interface GeoJsonFeature {
-  type: "Feature";
-  geometry: { type: "Point"; coordinates: [number, number]; };
-  properties: ForecastProperties;
-}
-
+export interface GeoJsonFeature { type: "Feature"; geometry: { type: "Point"; coordinates: [number, number]; }; properties: ForecastProperties; }
 export interface GeoJsonCollection { type: "FeatureCollection"; features: GeoJsonFeature[]; }
 
-export interface HealthResponse {
-  status: string;
-  latest_fetch: { fetched_at: string; status: string; record_count: number; } | null;
-}
+export interface HealthResponse { status: string; latest_fetch: { fetched_at: string; status: string; record_count: number; } | null; }
 
 export interface Pm25Observation {
   id?: number;
@@ -85,6 +77,45 @@ export interface Pm25Observation {
   fetched_at: string;
 }
 
+export interface EarthquakeStation {
+  id?: number;
+  earthquake_key: string;
+  source_dataset: string;
+  area_name: string | null;
+  county: string | null;
+  station_name: string | null;
+  station_lat: number | null;
+  station_lon: number | null;
+  station_intensity: string | null;
+  distance_km: number | null;
+  pga: number | null;
+  pgv: number | null;
+  fetched_at: string;
+}
+
+export interface EarthquakeEvent {
+  id?: number;
+  earthquake_key: string;
+  source_dataset: string;
+  report_type: string | null;
+  report_color: string | null;
+  report_content: string | null;
+  report_image_uri: string | null;
+  web_uri: string | null;
+  earthquake_time: string | null;
+  magnitude_type: string | null;
+  magnitude_value: number | null;
+  depth_km: number | null;
+  location: string | null;
+  epicenter_lat: number | null;
+  epicenter_lon: number | null;
+  max_intensity: string | null;
+  fetched_at: string;
+  station_count?: number;
+  stations?: EarthquakeStation[];
+}
+
+export interface EarthquakeResponse { count: number; earthquakes: EarthquakeEvent[]; }
 export interface NumericStats { min: number | null; max: number | null; avg: number | null; count: number; }
 
 export interface CountySummary {

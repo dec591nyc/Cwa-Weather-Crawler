@@ -67,6 +67,43 @@ CREATE TABLE IF NOT EXISTS air_quality_observations (
     fetched_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS earthquake_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    earthquake_key TEXT NOT NULL,
+    source_dataset TEXT NOT NULL,
+    report_type TEXT,
+    report_color TEXT,
+    report_content TEXT,
+    report_image_uri TEXT,
+    web_uri TEXT,
+    earthquake_time TEXT,
+    magnitude_type TEXT,
+    magnitude_value REAL,
+    depth_km REAL,
+    location TEXT,
+    epicenter_lat REAL,
+    epicenter_lon REAL,
+    max_intensity TEXT,
+    fetched_at TEXT NOT NULL,
+    UNIQUE(source_dataset, earthquake_key)
+);
+
+CREATE TABLE IF NOT EXISTS earthquake_station_intensities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    earthquake_key TEXT NOT NULL,
+    source_dataset TEXT NOT NULL,
+    area_name TEXT,
+    county TEXT,
+    station_name TEXT,
+    station_lat REAL,
+    station_lon REAL,
+    station_intensity TEXT,
+    distance_km REAL,
+    pga REAL,
+    pgv REAL,
+    fetched_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS forecasts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     station_id TEXT,
@@ -113,3 +150,6 @@ CREATE INDEX IF NOT EXISTS idx_weather_obs_station_time ON weather_observations(
 CREATE INDEX IF NOT EXISTS idx_weather_obs_county_time ON weather_observations(county, fetched_at);
 CREATE INDEX IF NOT EXISTS idx_air_quality_station_time ON air_quality_observations(station_id, observed_at);
 CREATE INDEX IF NOT EXISTS idx_air_quality_county_time ON air_quality_observations(county, fetched_at);
+CREATE INDEX IF NOT EXISTS idx_earthquake_events_time ON earthquake_events(earthquake_time);
+CREATE INDEX IF NOT EXISTS idx_earthquake_events_source_key ON earthquake_events(source_dataset, earthquake_key);
+CREATE INDEX IF NOT EXISTS idx_earthquake_station_key ON earthquake_station_intensities(source_dataset, earthquake_key);

@@ -3,7 +3,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 
-from data_pipeline.service import sync_forecasts, sync_pm25_observations, sync_rainfall_observations, sync_weather_observations
+from data_pipeline.service import (
+    sync_auto_station_observations,
+    sync_earthquake_observations,
+    sync_forecasts,
+    sync_pm25_observations,
+    sync_rainfall_observations,
+    sync_weather_observations,
+)
 
 
 @dataclass
@@ -25,8 +32,10 @@ def run_sync_job(name: str, sync_func: Callable[[], int]) -> SyncResult:
 def sync_observation_sources() -> dict:
     jobs: list[tuple[str, Callable[[], int]]] = [
         ("weather", sync_weather_observations),
+        ("auto_station", sync_auto_station_observations),
         ("rainfall", sync_rainfall_observations),
         ("air_quality", sync_pm25_observations),
+        ("earthquake", sync_earthquake_observations),
     ]
     results = [run_sync_job(name, sync_func) for name, sync_func in jobs]
     failed = [result for result in results if result.status != "success"]
@@ -41,8 +50,10 @@ def sync_all_sources() -> dict:
     jobs: list[tuple[str, Callable[[], int]]] = [
         ("forecast", sync_forecasts),
         ("weather", sync_weather_observations),
+        ("auto_station", sync_auto_station_observations),
         ("rainfall", sync_rainfall_observations),
         ("air_quality", sync_pm25_observations),
+        ("earthquake", sync_earthquake_observations),
     ]
     results = [run_sync_job(name, sync_func) for name, sync_func in jobs]
     failed = [result for result in results if result.status != "success"]

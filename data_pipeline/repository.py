@@ -30,13 +30,7 @@ def _insert_record(conn, table_name: str, columns: list[str], record: dict[str, 
 def save_forecasts(records: list[dict[str, Any]]) -> int:
     if not records:
         return 0
-
-    forecast_columns = [
-        "station_id", "county", "town", "forecast_start", "forecast_end", "weather", "weather_code",
-        "min_temp", "max_temp", "temperature", "humidity", "pop", "wind_speed", "wind_direction",
-        "source_dataset", "fetched_at",
-    ]
-
+    forecast_columns = ["station_id", "county", "town", "forecast_start", "forecast_end", "weather", "weather_code", "min_temp", "max_temp", "temperature", "humidity", "pop", "wind_speed", "wind_direction", "source_dataset", "fetched_at"]
     with get_connection() as conn:
         for record in records:
             if record.get("station_id"):
@@ -53,16 +47,7 @@ def save_forecasts(records: list[dict[str, Any]]) -> int:
                         altitude_m=excluded.altitude_m,
                         updated_at=excluded.updated_at
                     """,
-                    (
-                        record.get("station_id"),
-                        record.get("station_name") or record.get("station_id"),
-                        record.get("county"),
-                        record.get("town"),
-                        record.get("lat"),
-                        record.get("lon"),
-                        record.get("altitude_m"),
-                        record.get("fetched_at"),
-                    ),
+                    (record.get("station_id"), record.get("station_name") or record.get("station_id"), record.get("county"), record.get("town"), record.get("lat"), record.get("lon"), record.get("altitude_m"), record.get("fetched_at")),
                 )
             _insert_record(conn, "forecasts", forecast_columns, record)
     return len(records)
@@ -71,14 +56,7 @@ def save_forecasts(records: list[dict[str, Any]]) -> int:
 def save_weather_observations(records: list[dict[str, Any]]) -> int:
     if not records:
         return 0
-
-    weather_columns = [
-        "station_id", "station_name", "county", "town", "lat", "lon", "altitude_m", "observed_at",
-        "temperature", "rainfall", "rainfall_10min", "rainfall_1h", "rainfall_today", "wind_speed", "wind_direction", "humidity",
-        "visibility_km", "visibility_description", "uv_index", "daily_high", "daily_low", "weather",
-        "source_dataset", "fetched_at",
-    ]
-
+    weather_columns = ["station_id", "station_name", "county", "town", "lat", "lon", "altitude_m", "observed_at", "temperature", "rainfall", "rainfall_10min", "rainfall_1h", "rainfall_today", "wind_speed", "wind_direction", "humidity", "visibility_km", "visibility_description", "uv_index", "daily_high", "daily_low", "weather", "source_dataset", "fetched_at"]
     with get_connection() as conn:
         for record in records:
             conn.execute(
@@ -94,16 +72,7 @@ def save_weather_observations(records: list[dict[str, Any]]) -> int:
                     altitude_m=excluded.altitude_m,
                     updated_at=excluded.updated_at
                 """,
-                (
-                    record.get("station_id"),
-                    record.get("station_name") or record.get("station_id"),
-                    record.get("county"),
-                    record.get("town"),
-                    record.get("lat"),
-                    record.get("lon"),
-                    record.get("altitude_m"),
-                    record.get("fetched_at"),
-                ),
+                (record.get("station_id"), record.get("station_name") or record.get("station_id"), record.get("county"), record.get("town"), record.get("lat"), record.get("lon"), record.get("altitude_m"), record.get("fetched_at")),
             )
             _insert_record(conn, "weather_observations", weather_columns, record)
     return len(records)
@@ -112,18 +81,48 @@ def save_weather_observations(records: list[dict[str, Any]]) -> int:
 def save_air_quality_observations(records: list[dict[str, Any]]) -> int:
     if not records:
         return 0
-
-    air_columns = [
-        "station_id", "station_name", "county", "lat", "lon", "observed_at",
-        "aqi", "status", "pollutant", "pm25", "pm25_avg", "pm10", "pm10_avg",
-        "so2", "co", "co_8hr", "o3", "o3_8hr", "no2", "nox", "no",
-        "source_dataset", "fetched_at",
-    ]
-
+    air_columns = ["station_id", "station_name", "county", "lat", "lon", "observed_at", "aqi", "status", "pollutant", "pm25", "pm25_avg", "pm10", "pm10_avg", "so2", "co", "co_8hr", "o3", "o3_8hr", "no2", "nox", "no", "source_dataset", "fetched_at"]
     with get_connection() as conn:
         for record in records:
             _insert_record(conn, "air_quality_observations", air_columns, record)
     return len(records)
+
+
+def save_earthquake_observations(payload: dict[str, list[dict[str, Any]]]) -> int:
+    events = payload.get("events", [])
+    stations = payload.get("stations", [])
+    if not events:
+        return 0
+    event_columns = ["earthquake_key", "source_dataset", "report_type", "report_color", "report_content", "report_image_uri", "web_uri", "earthquake_time", "magnitude_type", "magnitude_value", "depth_km", "location", "epicenter_lat", "epicenter_lon", "max_intensity", "fetched_at"]
+    station_columns = ["earthquake_key", "source_dataset", "area_name", "county", "station_name", "station_lat", "station_lon", "station_intensity", "distance_km", "pga", "pgv", "fetched_at"]
+    with get_connection() as conn:
+        for event in events:
+            conn.execute(
+                """
+                INSERT INTO earthquake_events(earthquake_key, source_dataset, report_type, report_color, report_content, report_image_uri, web_uri, earthquake_time, magnitude_type, magnitude_value, depth_km, location, epicenter_lat, epicenter_lon, max_intensity, fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(source_dataset, earthquake_key) DO UPDATE SET
+                    report_type=excluded.report_type,
+                    report_color=excluded.report_color,
+                    report_content=excluded.report_content,
+                    report_image_uri=excluded.report_image_uri,
+                    web_uri=excluded.web_uri,
+                    earthquake_time=excluded.earthquake_time,
+                    magnitude_type=excluded.magnitude_type,
+                    magnitude_value=excluded.magnitude_value,
+                    depth_km=excluded.depth_km,
+                    location=excluded.location,
+                    epicenter_lat=excluded.epicenter_lat,
+                    epicenter_lon=excluded.epicenter_lon,
+                    max_intensity=excluded.max_intensity,
+                    fetched_at=excluded.fetched_at
+                """,
+                tuple(event.get(column) for column in event_columns),
+            )
+            conn.execute("DELETE FROM earthquake_station_intensities WHERE source_dataset = ? AND earthquake_key = ?", (event.get("source_dataset"), event.get("earthquake_key")))
+        for station in stations:
+            _insert_record(conn, "earthquake_station_intensities", station_columns, station)
+    return len(events)
 
 
 def log_fetch(dataset_id: str, fetched_at: str, status: str, record_count: int, response_ms: int | None, error: str | None = None) -> None:
