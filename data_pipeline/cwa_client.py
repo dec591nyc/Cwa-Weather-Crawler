@@ -10,6 +10,12 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 CWA_REST_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/{dataset_id}"
 
 
+def _normalize_param_value(value: Any) -> Any:
+    if isinstance(value, (list, tuple, set)):
+        return ",".join(str(item) for item in value if item is not None)
+    return value
+
+
 class CwaClient:
     def __init__(self, api_key: str, dataset_id: str) -> None:
         if not api_key:
@@ -21,7 +27,7 @@ class CwaClient:
         url = CWA_REST_URL.format(dataset_id=self.dataset_id)
         params = {"Authorization": self.api_key, "format": "JSON"}
         if extra_params:
-            params.update(extra_params)
+            params.update({key: _normalize_param_value(value) for key, value in extra_params.items()})
         start = time.perf_counter()
         try:
             response = requests.get(url, params=params, timeout=30, verify=False)
