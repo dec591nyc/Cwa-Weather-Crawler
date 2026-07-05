@@ -113,7 +113,7 @@ copy .env.example .env
 
 ```env
 # Frontend
-VITE_API_BASE_URL=
+VITE_API_BASE_URL=your_backend_website_deployment_link
 VITE_WINDY_API_KEY=your_windy_map_forecast_key_here
 
 # Backend
