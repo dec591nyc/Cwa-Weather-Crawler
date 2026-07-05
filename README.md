@@ -1,64 +1,107 @@
-# CWA Weather Crawler
+# 台灣環境觀測資料視覺化平台
 
-## 專案介紹
+(Taiwan Environmental Observation Dashboard)
 
-本專案旨在整合台灣政府開放資料與地圖服務，將氣候、空氣品質與環境觀測資料轉化為可互動的視覺化儀表板。使用者可以透過地圖快速查看各地測站狀態，並以指標切換、縣市篩選與門檻控制掌握不同區域的環境變化。
+<p align="center">
+  <img src="https://img.shields.io/badge/FastAPI-Python-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/React-TypeScript-3178C6?style=for-the-badge&logo=react&logoColor=white" alt="React TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-Frontend-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/MapLibre-Map-396CB2?style=for-the-badge" alt="MapLibre" />
+</p>
 
-目前版本以氣象觀測與空氣品質資料作為核心資料來源，並結合 OpenStreetMap 與 Windy 風場視覺化，建立一個可持續擴充的台灣環境資訊 dashboard。後續可延伸至 UV、AQI、降雨警戒、極端天氣提示與長期趨勢分析。
+💡 **本專案旨在整合台灣政府開放資料與地圖服務，將氣候、空氣品質與環境觀測資料轉換為可互動的視覺化儀表板。**
 
-## 專案連結
+透過後端資料擷取與正規化流程，平台將不同來源的開放 API 資料整理成一致格式，並以前端地圖介面呈現各地測站狀態、指標分布與區域差異。使用者可透過指標切換、縣市篩選與門檻控制，快速掌握台灣各地環境觀測資訊。
 
-| 項目 | 連結 |
-| --- | --- |
-| 線上展示 | [cwa-weather-crawler.vercel.app](https://cwa-weather-crawler.vercel.app) |
-| 後端健康檢查 | [Render FastAPI `/api/health`](https://cwa-weather-crawler.onrender.com/api/health) |
-| 雲端部署文件 | [docs/cloud_deployment.md](docs/cloud_deployment.md) |
+🔗 [**Live Demo**](https://cwa-weather-crawler.vercel.app/)
 
-## 核心功能
+---
 
-- 以地圖呈現台灣各地環境觀測資料。
-- 支援 OSM 與 Windy 兩種地圖模式。
-- 支援氣溫、降水量、濕度、風速、PM2.5 等觀測指標切換。
-- 支援縣市篩選與指標門檻篩選。
-- 支援測站 popup、顏色級距圖例與縣市摘要。
-- 後端負責 API 串接、資料清洗、缺值處理與統一輸出格式。
+## 🎯 專案核心定位與特色
 
-## 技術架構
+本專案定位為**台灣環境觀測資料的整合型視覺化平台**。目前以政府開放 API 為主要資料來源，並保留後續擴充更多環境指標與分析模組的彈性。
 
-| 層級 | 使用技術 |
-| --- | --- |
-| 後端 | FastAPI, Python, SQLite |
-| 資料處理 | CWA Open Data API, MOENV Open Data API |
-| 前端 | React, TypeScript, Vite |
-| 地圖視覺化 | MapLibre GL, OpenStreetMap, Windy Map Forecast API |
-| 雲端部署 | Render, Vercel |
+1. **整合政府開放資料**：
+   後端串接中央氣象署與環境部開放 API，將不同來源的觀測資料清洗、標準化並存入資料庫，避免前端直接處理不一致的原始資料格式。
 
-## 資料來源
+2. **互動式地圖呈現**：
+   前端提供地圖化儀表板，讓使用者能以直覺方式查看不同地區的觀測狀態，並透過縣市、指標與門檻篩選快速聚焦重點區域。
 
-| 資料來源 | Dataset / 服務 | 用途 |
+3. **雙地圖模式設計**：
+   OSM 模式以 OpenStreetMap / MapLibre 呈現測站與統計資料；Windy 模式則提供風場背景，並疊加相同的觀測指標圓點，讓兩種模式維持一致操作邏輯。
+
+4. **可擴充的資料處理流程**：
+   crawler、normalization、repository 與 API layer 分開設計，後續可逐步加入 UV、AQI、PM10、O3、NO2、SO2、CO 或其他環境資料。
+
+---
+
+## 🏗️ 系統架構與資料流
+
+```mermaid
+flowchart TD
+    subgraph "資料來源 (Open Data Sources)"
+        A[中央氣象署 CWA]
+        B[環境部 MOENV]
+    end
+
+    subgraph "後端資料處理 (FastAPI / Python)"
+        C[Crawler]
+        D[Normalize / Clean]
+        E[(SQLite Database)]
+        F[FastAPI Endpoints]
+    end
+
+    subgraph "前端儀表板 (React / Vite)"
+        G[MapLibre / OSM Mode]
+        H[Windy Mode]
+        I[County Summary / Controls]
+    end
+
+    A --> C
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    F --> H
+    F --> I
+```
+
+---
+
+## 📂 目錄結構與模組說明
+
+```text
+├── api/                         # FastAPI endpoints
+├── crawler/                     # CWA / MOENV API clients and data normalization
+├── database/                    # SQLite connection, schema and initialization
+├── data/                        # Local runtime data, ignored by git
+├── docs/                        # Planning and cloud deployment notes
+├── frontend/                    # React / Vite frontend dashboard
+└── scripts/                     # CLI scripts for crawler, init and validation
+```
+
+---
+
+## 📊 資料來源與視覺化模式
+
+| 類別 | Dataset / 服務 | 用途 |
 | --- | --- | --- |
 | 中央氣象署 CWA | `O-A0003-001` | 氣象觀測資料 |
-| 環境部 MOENV | `aqx_p_432` | PM2.5 空氣品質資料 |
+| 環境部 MOENV | `aqx_p_432` | 空氣品質觀測資料 |
 | OpenStreetMap | Map tiles | OSM 模式地圖底圖 |
 | Windy | Map Forecast API | Windy 模式風場背景 |
 
-Windy 主要作為風場視覺化背景；測站數值、縣市摘要與排名資料仍以後端正規化後的 CWA / MOENV 資料為準。
+---
 
-## 專案結構
+## 🔑 API Key 與環境變數
 
-```text
-api/          FastAPI endpoints
-crawler/      CWA / MOENV clients, normalization, persistence service
-database/     SQLite connection, schema, init code
-data/         local runtime data, ignored by git
-docs/         planning and deployment notes
-frontend/     React / Vite dashboard
-scripts/      CLI entry points and validation scripts
-```
+本專案需要 CWA、MOENV 與 Windy API key。
 
-## API Key 與環境變數
-
-本專案需要 CWA、MOENV 與 Windy API key。CWA 與 MOENV key 只應放在後端環境變數；Windy Map Forecast API 由前端瀏覽器載入，因此需要設定 `VITE_WINDY_API_KEY`，並在 Windy 後台設定授權網域。
+- `CWA_API_KEY` 與 `MOENV_API_KEY` 僅供後端使用。
+- `VITE_WINDY_API_KEY` 供前端載入 Windy Map Forecast API。
+- 若前後端分離部署，`VITE_API_BASE_URL` 需設定為後端服務網址。
 
 複製環境變數範例檔：
 
@@ -66,7 +109,7 @@ scripts/      CLI entry points and validation scripts
 copy .env.example .env
 ```
 
-目前 `.env.example` 結構如下：
+`.env.example`：
 
 ```env
 # Frontend
@@ -83,15 +126,11 @@ DATABASE_PATH=data/weather.db
 RAW_DATA_DIR=data/raw
 ```
 
-本機開發時，`VITE_API_BASE_URL` 可依照前端代理設定留空。若前端與後端分開部署，請將它設定為後端服務網址：
+---
 
-```env
-VITE_API_BASE_URL=https://cwa-weather-crawler.onrender.com
-```
+## 🚀 部署與本地開發
 
-## Quick Start
-
-建立 Python 虛擬環境並安裝後端套件：
+### 1. 安裝後端環境
 
 ```powershell
 py -m venv .venv
@@ -99,7 +138,7 @@ py -m venv .venv
 pip install -r requirements.txt
 ```
 
-初始化資料庫並寫入第一批觀測資料：
+### 2. 初始化資料庫與觀測資料
 
 ```powershell
 py scripts/init_db.py
@@ -107,13 +146,13 @@ py scripts/run_weather_observations.py
 py scripts/run_pm25.py
 ```
 
-啟動 FastAPI 後端：
+### 3. 啟動 FastAPI 後端
 
 ```powershell
 uvicorn api.main:app --reload
 ```
 
-另開一個終端機啟動前端：
+### 4. 啟動前端開發服務
 
 ```powershell
 cd frontend
@@ -121,29 +160,24 @@ npm install
 npm run dev
 ```
 
-常用 API 檢查：
+啟動後可於瀏覽器開啟 Vite 顯示的 localhost 網址進行預覽。
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/api/health
-Invoke-RestMethod http://127.0.0.1:8000/api/summary/counties
-Invoke-RestMethod http://127.0.0.1:8000/api/weather/stations.geojson
-Invoke-RestMethod http://127.0.0.1:8000/api/pm25/latest
-```
+---
 
-## API Endpoints
+## 📡 API Endpoints
 
 | Endpoint | Method | 說明 |
 | --- | --- | --- |
 | `/api/health` | GET | 服務狀態與最新同步資訊 |
 | `/api/weather/stations.geojson` | GET | CWA 測站觀測資料 GeoJSON |
-| `/api/pm25/latest` | GET | 最新 PM2.5 觀測資料 |
+| `/api/pm25/latest` | GET | 最新空氣品質觀測資料 |
 | `/api/summary/counties` | GET | 縣市層級摘要資料 |
-| `/api/refresh/weather` | POST | 手動更新 CWA 氣象觀測資料 |
-| `/api/refresh/pm25` | POST | 手動更新 MOENV PM2.5 資料 |
+| `/api/refresh/weather` | POST | 更新 CWA 氣象觀測資料 |
+| `/api/refresh/pm25` | POST | 更新 MOENV 空氣品質資料 |
 
-`refresh` endpoints 適合 MVP demo 或排程任務使用。若進入正式公開服務，建議增加 token 驗證，避免任何人都能觸發資料更新。
+---
 
-## 部署方式
+## ☁️ 雲端部署
 
 目前 MVP 採用前後端分離部署：
 
@@ -154,20 +188,14 @@ Invoke-RestMethod http://127.0.0.1:8000/api/pm25/latest
 | 資料庫 | Render Persistent Disk | `weather.db` 與 raw snapshot |
 | 排程 | GitHub Actions 或 cron service | 定期呼叫 refresh endpoints |
 
-完整雲端部署流程請參考 [docs/cloud_deployment.md](docs/cloud_deployment.md)。
+完整部署流程請參考 [docs/cloud_deployment.md](docs/cloud_deployment.md)。
 
-## 未來發展
+---
 
-- 擴充 UV 指標、AQI、PM10、O3、NO2、SO2、CO 等環境資料。
-- 建立高溫、強風、強降雨、高 UV 與空品不良的警示規則。
-- 累積歷史資料後，加入縣市趨勢、日週月比較與異常觀測提示。
-- 增加管理者用的資料更新介面與受保護的 refresh endpoints。
-- 強化各縣市、各測站與不同時間區間的視覺化比較能力。
+## 🧭 未來發展
 
-## 開發收穫
-
-- 地圖視覺化與資料真相來源需要分離；Windy 適合做風場背景，但統計與測站數值應以後端資料為準。
-- 政府開放資料常見缺值與 sentinel value，例如 `-99`、`-999`，需要在後端先完成清理。
-- 環境觀測資料應明確區分 `observed_at` 與 `fetched_at`，避免使用者誤解資料新鮮度。
-- OSM 與 Windy 模式應共用相同的指標、篩選條件、門檻與圖例，降低使用者操作成本。
-- README、`.env.example` 與部署文件需要和實際功能同步，尤其是前後端分離時的環境變數設定。
+- 擴充 UV、AQI、PM10、O3、NO2、SO2、CO 等環境觀測指標。
+- 建立高溫、強風、強降雨、高 UV 與空氣品質不良等警示條件。
+- 累積歷史資料後，加入縣市趨勢、時間序列比較與異常觀測提示。
+- 增加後台管理介面，讓資料更新與排程狀態更容易被維護。
+- 強化不同縣市、測站與時間區間之間的視覺化比較。
