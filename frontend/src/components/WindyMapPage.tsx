@@ -10,6 +10,7 @@ declare global {
   interface Window {
     windyInit?: (options: Record<string, unknown>, callback: (api: WindyApi) => void) => void;
     L?: any;
+    __leafletLoaderPromise?: Promise<void>;
     __windyLoaderPromise?: Promise<void>;
     __windyApi?: WindyApi;
   }
@@ -17,8 +18,34 @@ declare global {
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
+const LEAFLET_SCRIPT_URL = "https://unpkg.com/leaflet@1.4.0/dist/leaflet.js";
 const WINDY_SCRIPT_URL = "https://api.windy.com/assets/map-forecast/libBoot.js";
-const WINDY_INIT_TIMEOUT_MS = 10000;
+const WINDY_INIT_TIMEOUT_MS = 15000;
+
+function loadScriptOnce(src: string, label: string): Promise<void> {
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+  if (existing) {
+    if (existing.dataset.loaded === "true") {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error(`${label} failed to load`)), { once: true });
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`${label} failed to load`));
+    document.head.appendChild(script);
+  });
+}
 
 function waitForWindyInit(timeoutMs = WINDY_INIT_TIMEOUT_MS): Promise<void> {
   if (window.windyInit) {
@@ -37,7 +64,7 @@ function waitForWindyInit(timeoutMs = WINDY_INIT_TIMEOUT_MS): Promise<void> {
       if (Date.now() - startedAt >= timeoutMs) {
         reject(
           new Error(
-            "Windy library loaded, but windyInit was not registered. Check the Windy key domain authorization, browser blockers, or console network errors."
+            "Windy library loaded, but windyInit was not registered. Check the Windy key domain authorization, browser blockers, console network errors, or Leaflet loading."
           )
         );
         return;
@@ -50,7 +77,24 @@ function waitForWindyInit(timeoutMs = WINDY_INIT_TIMEOUT_MS): Promise<void> {
   });
 }
 
-function loadWindyScript(): Promise<void> {
+function loadLeafletScript(): Promise<void> {
+  if (window.L) {
+    return Promise.resolve();
+  }
+  if (window.__leafletLoaderPromise) {
+    return window.__leafletLoaderPromise;
+  }
+
+  window.__leafletLoaderPromise = loadScriptOnce(LEAFLET_SCRIPT_URL, "Leaflet library").then(() => {
+    if (!window.L) {
+      throw new Error("Leaflet library loaded, but window.L was not registered");
+    }
+  });
+
+  return window.__leafletLoaderPromise;
+}
+
+async function loadWindyScript(): Promise<void> {
   if (window.windyInit) {
     return Promise.resolve();
   }
@@ -58,24 +102,11 @@ function loadWindyScript(): Promise<void> {
     return window.__windyLoaderPromise;
   }
 
-  window.__windyLoaderPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${WINDY_SCRIPT_URL}"]`);
-    if (existing) {
-      resolve();
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Windy library failed to load")), { once: true });
-      return;
-    }
+  window.__windyLoaderPromise = loadLeafletScript()
+    .then(() => loadScriptOnce(WINDY_SCRIPT_URL, "Windy library"))
+    .then(() => waitForWindyInit());
 
-    const script = document.createElement("script");
-    script.src = WINDY_SCRIPT_URL;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Windy library failed to load"));
-    document.head.appendChild(script);
-  });
-
-  return window.__windyLoaderPromise.then(() => waitForWindyInit());
+  return window.__windyLoaderPromise;
 }
 
 function weatherColor(temp: number | null): string {
