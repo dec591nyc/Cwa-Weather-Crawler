@@ -22,9 +22,20 @@ def save_raw_snapshot(dataset_id: str, raw_data: dict[str, Any], fetched_at: str
     return str(file_path)
 
 
+def _insert_record(conn, table_name: str, columns: list[str], record: dict[str, Any]) -> None:
+    sql = "INSERT INTO " + table_name + "(" + ", ".join(columns) + ") VALUES (" + ", ".join(["?"] * len(columns)) + ")"
+    conn.execute(sql, tuple(record.get(column) for column in columns))
+
+
 def save_forecasts(records: list[dict[str, Any]]) -> int:
     if not records:
         return 0
+
+    forecast_columns = [
+        "station_id", "county", "town", "forecast_start", "forecast_end", "weather", "weather_code",
+        "min_temp", "max_temp", "temperature", "humidity", "pop", "wind_speed", "wind_direction",
+        "source_dataset", "fetched_at",
+    ]
 
     with get_connection() as conn:
         for record in records:
@@ -53,40 +64,20 @@ def save_forecasts(records: list[dict[str, Any]]) -> int:
                         record.get("fetched_at"),
                     ),
                 )
-
-            conn.execute(
-                """
-                INSERT INTO forecasts(
-                    station_id, county, town, forecast_start, forecast_end, weather, weather_code,
-                    min_temp, max_temp, temperature, humidity, pop, wind_speed, wind_direction,
-                    source_dataset, fetched_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    record.get("station_id"),
-                    record.get("county"),
-                    record.get("town"),
-                    record.get("forecast_start"),
-                    record.get("forecast_end"),
-                    record.get("weather"),
-                    record.get("weather_code"),
-                    record.get("min_temp"),
-                    record.get("max_temp"),
-                    record.get("temperature"),
-                    record.get("humidity"),
-                    record.get("pop"),
-                    record.get("wind_speed"),
-                    record.get("wind_direction"),
-                    record.get("source_dataset"),
-                    record.get("fetched_at"),
-                ),
-            )
+            _insert_record(conn, "forecasts", forecast_columns, record)
     return len(records)
 
 
 def save_weather_observations(records: list[dict[str, Any]]) -> int:
     if not records:
         return 0
+
+    weather_columns = [
+        "station_id", "station_name", "county", "town", "lat", "lon", "altitude_m", "observed_at",
+        "temperature", "rainfall", "rainfall_1h", "rainfall_today", "wind_speed", "wind_direction", "humidity",
+        "visibility_km", "visibility_description", "uv_index", "daily_high", "daily_low", "weather",
+        "source_dataset", "fetched_at",
+    ]
 
     with get_connection() as conn:
         for record in records:
@@ -114,46 +105,7 @@ def save_weather_observations(records: list[dict[str, Any]]) -> int:
                     record.get("fetched_at"),
                 ),
             )
-            conn.execute(
-                """
-                INSERT INTO weather_observations(
-                    station_id, station_name, county, town, lat, lon, altitude_m, observed_at,
-                    temperature, rainfall, rainfall_10min, rainfall_1h, rainfall_3h, rainfall_6h,
-                    rainfall_12h, rainfall_24h, wind_speed, wind_direction, humidity,
-                    visibility_km, visibility_description, uv_index, daily_high, daily_low,
-                    weather, source_dataset, fetched_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    record.get("station_id"),
-                    record.get("station_name"),
-                    record.get("county"),
-                    record.get("town"),
-                    record.get("lat"),
-                    record.get("lon"),
-                    record.get("altitude_m"),
-                    record.get("observed_at"),
-                    record.get("temperature"),
-                    record.get("rainfall"),
-                    record.get("rainfall_10min"),
-                    record.get("rainfall_1h"),
-                    record.get("rainfall_3h"),
-                    record.get("rainfall_6h"),
-                    record.get("rainfall_12h"),
-                    record.get("rainfall_24h"),
-                    record.get("wind_speed"),
-                    record.get("wind_direction"),
-                    record.get("humidity"),
-                    record.get("visibility_km"),
-                    record.get("visibility_description"),
-                    record.get("uv_index"),
-                    record.get("daily_high"),
-                    record.get("daily_low"),
-                    record.get("weather"),
-                    record.get("source_dataset"),
-                    record.get("fetched_at"),
-                ),
-            )
+            _insert_record(conn, "weather_observations", weather_columns, record)
     return len(records)
 
 
@@ -161,52 +113,22 @@ def save_air_quality_observations(records: list[dict[str, Any]]) -> int:
     if not records:
         return 0
 
+    air_columns = [
+        "station_id", "station_name", "county", "lat", "lon", "observed_at",
+        "aqi", "status", "pollutant", "pm25", "pm25_avg", "pm10", "pm10_avg",
+        "so2", "co", "co_8hr", "o3", "o3_8hr", "no2", "nox", "no",
+        "source_dataset", "fetched_at",
+    ]
+
     with get_connection() as conn:
         for record in records:
-            conn.execute(
-                """
-                INSERT INTO air_quality_observations(
-                    station_id, station_name, county, lat, lon, observed_at,
-                    aqi, status, pollutant, pm25, pm25_avg, pm10, pm10_avg,
-                    so2, co, co_8hr, o3, o3_8hr, no2, nox, no,
-                    source_dataset, fetched_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    record.get("station_id"),
-                    record.get("station_name"),
-                    record.get("county"),
-                    record.get("lat"),
-                    record.get("lon"),
-                    record.get("observed_at"),
-                    record.get("aqi"),
-                    record.get("status"),
-                    record.get("pollutant"),
-                    record.get("pm25"),
-                    record.get("pm25_avg"),
-                    record.get("pm10"),
-                    record.get("pm10_avg"),
-                    record.get("so2"),
-                    record.get("co"),
-                    record.get("co_8hr"),
-                    record.get("o3"),
-                    record.get("o3_8hr"),
-                    record.get("no2"),
-                    record.get("nox"),
-                    record.get("no"),
-                    record.get("source_dataset"),
-                    record.get("fetched_at"),
-                ),
-            )
+            _insert_record(conn, "air_quality_observations", air_columns, record)
     return len(records)
 
 
 def log_fetch(dataset_id: str, fetched_at: str, status: str, record_count: int, response_ms: int | None, error: str | None = None) -> None:
     with get_connection() as conn:
         conn.execute(
-            """
-            INSERT INTO fetch_logs(dataset_id, fetched_at, status, record_count, response_ms, error_message)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
+            "INSERT INTO fetch_logs(dataset_id, fetched_at, status, record_count, response_ms, error_message) VALUES (?, ?, ?, ?, ?, ?)",
             (dataset_id, fetched_at, status, record_count, response_ms, error),
         )
