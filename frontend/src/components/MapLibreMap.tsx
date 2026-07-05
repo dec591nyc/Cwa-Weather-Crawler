@@ -57,7 +57,7 @@ function buildObservationFeatures(state: ObservationState): GeoJSON.FeatureColle
         const value = getPm25MetricValue(obs);
         return { obs, value };
       })
-      .filter(({ value }) => value === null || value >= state.metricMin)
+      .filter(({ value }) => value !== null && value >= state.metricMin)
       .map(({ obs, value }) => ({
         type: "Feature" as const,
         geometry: {
@@ -90,7 +90,7 @@ function buildObservationFeatures(state: ObservationState): GeoJSON.FeatureColle
       const value = getWeatherMetricValue(feature.properties, state.activeMetric);
       return { feature, value };
     })
-    .filter(({ value }) => value === null || value >= state.metricMin)
+    .filter(({ value }) => value !== null && value >= state.metricMin)
     .map(({ feature, value }) => ({
       type: "Feature" as const,
       geometry: feature.geometry,
