@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   formatMetricValue,
   getMetricColor,
+  getMetricLegendItems,
   getPm25MetricValue,
   getWeatherMetricValue,
   metricConfigs,
@@ -180,7 +181,7 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
         .filter((obs) => obs.lat !== null && obs.lon !== null)
         .filter((obs) => !selectedCounty || obs.county === selectedCounty)
         .map((obs) => ({ obs, value: getPm25MetricValue(obs) }))
-        .filter(({ value }) => value === null || value >= metricMin);
+        .filter(({ value }) => value !== null && value >= metricMin);
 
       setWeatherCount(0);
       setPm25Count(rows.length);
@@ -217,7 +218,7 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
         feature,
         value: getWeatherMetricValue(feature.properties, activeMetric),
       }))
-      .filter(({ value }) => value === null || value >= metricMin);
+      .filter(({ value }) => value !== null && value >= metricMin);
 
     setWeatherCount(rows.length);
     setPm25Count(0);
@@ -330,6 +331,7 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
 
   const config = metricConfigs[activeMetric];
   const activeCount = config.source === "airQuality" ? pm25Count : weatherCount;
+  const legendItems = getMetricLegendItems(activeMetric);
 
   return (
     <div
@@ -356,22 +358,42 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
             bottom: "1rem",
             zIndex: 1200,
             display: "grid",
-            gap: "0.45rem",
-            minWidth: 240,
+            gap: "0.42rem",
+            width: 220,
             border: "1px solid rgba(15, 23, 42, 0.16)",
             borderRadius: 8,
             background: "rgba(255, 255, 255, 0.94)",
-            padding: "0.75rem",
+            padding: "0.72rem",
             boxShadow: "0 10px 22px rgba(15, 23, 42, 0.18)",
-            fontSize: "0.78rem",
+            fontSize: "0.76rem",
             fontWeight: 800,
           }}
         >
-          <strong style={{ fontSize: "0.88rem" }}>Windy + {config.label} 疊圖</strong>
-          <span>背景：Windy 風場</span>
-          <span>圓點：{config.source === "airQuality" ? "MOENV PM2.5 測站" : "CWA 氣象觀測站"}</span>
-          <span>顏色：依照目前控制面板的「{config.label}」級距</span>
-          <span>門檻：只顯示 ≥ {metricMin}{config.unit}</span>
+          <strong style={{ fontSize: "0.86rem" }}>{config.label} 顏色級距</strong>
+          {legendItems.map((item) => (
+            <div
+              key={`${activeMetric}-${item.label}`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "16px 1fr auto",
+                alignItems: "center",
+                gap: "0.45rem",
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: 4,
+                  border: "1px solid rgba(15, 23, 42, 0.18)",
+                  background: item.color,
+                }}
+              />
+              <span>{item.label}</span>
+              <span style={{ color: "#64748b", fontSize: "0.72rem" }}>{item.desc}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
