@@ -41,8 +41,8 @@ def list_api_sources() -> dict:
             "map_ready": True,
             "coordinate_quality": "雨量站經緯度",
             "used_by": ["/api/weather/stations.geojson", "/api/weather/latest", "/api/summary/counties", "/api/refresh/rainfall"],
-            "metrics": ["短週期降雨量", "當天累積雨量"],
-            "note": "中央氣象署雨量站資料，用於降雨量點位與短週期降雨監測。",
+            "metrics": ["10 分鐘降雨量", "過去 24 小時雨量"],
+            "note": "中央氣象署雨量站資料，用於短週期降雨與過去 24 小時累積雨量監測。",
         },
         {
             "provider": "CWA",

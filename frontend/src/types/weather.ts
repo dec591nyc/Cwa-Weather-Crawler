@@ -21,7 +21,6 @@ export interface ForecastProperties {
   rainfall?: number | null;
   rainfall_10min?: number | null;
   rainfall_1h?: number | null;
-  rainfall_today?: number | null;
   rainfall_24h?: number | null;
   visibility_km?: number | null;
   visibility_description?: string | null;
@@ -34,7 +33,7 @@ export interface ForecastProperties {
 export type ObservationMetric =
   | "temperature"
   | "rainfall_10min"
-  | "rainfall_today"
+  | "rainfall_24h"
   | "humidity"
   | "wind_speed"
   | "visibility_km"
@@ -47,7 +46,6 @@ export type ObservationMetric =
 
 export interface GeoJsonFeature { type: "Feature"; geometry: { type: "Point"; coordinates: [number, number]; }; properties: ForecastProperties; }
 export interface GeoJsonCollection { type: "FeatureCollection"; features: GeoJsonFeature[]; }
-
 export interface HealthResponse { status: string; latest_fetch: { fetched_at: string; status: string; record_count: number; } | null; }
 
 export interface Pm25Observation {
@@ -126,7 +124,7 @@ export interface CountySummary {
   rainfall: NumericStats;
   rainfall_10min: NumericStats;
   rainfall_1h: NumericStats;
-  rainfall_today: NumericStats;
+  rainfall_24h: NumericStats;
   humidity: NumericStats;
   wind_speed: NumericStats;
   wind_direction_avg: number | null;

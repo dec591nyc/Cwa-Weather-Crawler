@@ -62,10 +62,8 @@ def parse_coordinates(geo_info: dict[str, Any] | None, station: dict[str, Any]) 
     lon = parse_float(get_first(station, "lon", "lng", "longitude", "StationLongitude"))
     if lat is not None and lon is not None:
         return lat, lon
-
     if not isinstance(geo_info, dict):
         return lat, lon
-
     lat = parse_float(get_first(geo_info, "lat", "latitude", "StationLatitude"))
     lon = parse_float(get_first(geo_info, "lon", "lng", "longitude", "StationLongitude"))
     coordinates = get_first(geo_info, "Coordinates", "coordinates")
@@ -80,7 +78,6 @@ def parse_coordinates(geo_info: dict[str, Any] | None, station: dict[str, Any]) 
                 continue
             if "wgs" in name or lat is None or lon is None:
                 return item_lat, item_lon
-
     return lat, lon
 
 
@@ -122,12 +119,10 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
     stations = records.get("Station") or records.get("station") or records.get("Stations") or records.get("stations") or []
     if isinstance(stations, dict):
         stations = [stations]
-
     normalized: list[dict[str, Any]] = []
     for station in stations:
         if not isinstance(station, dict):
             continue
-
         geo_info = get_first(station, "GeoInfo", "geoInfo")
         if not isinstance(geo_info, dict):
             geo_info = {}
@@ -135,31 +130,16 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
         rainfall_element = get_first(station, "RainfallElement", "rainfallElement")
         obs_time = get_first(station, "ObsTime", "obsTime")
         observed_at = get_first(obs_time, "DateTime", "dateTime", "DataTime", "dataTime") if isinstance(obs_time, dict) else obs_time
-
         rainfall_now = extract_rainfall_value(rainfall_element, weather_element, "Now", "Precipitation")
         rainfall_10min = extract_rainfall_value(rainfall_element, weather_element, "Past10Min", "Past10min", "Past10Minutes")
         rainfall_1h = extract_rainfall_value(rainfall_element, weather_element, "Past1hr", "Past1Hour", "Past1Hr", "HourRainfall")
-        rainfall_today = extract_rainfall_value(
-            rainfall_element,
-            weather_element,
-            "DailyRainfall",
-            "TodayRainfall",
-            "RainfallToday",
-            "Today",
-            "DayRainfall",
-            "AccumulatedPrecipitation",
-            "AccumulatedRainfall",
-            "DailyAccumulatedPrecipitation",
-        )
-
+        rainfall_24h = extract_rainfall_value(rainfall_element, weather_element, "Past24hr", "Past24Hour", "Past24Hr", "Past24Hours", "Hour24Rainfall")
         visibility_raw = extract_weather_value(weather_element, "Visibility", "VisibilityDescription")
         lat, lon = parse_coordinates(geo_info, station)
         station_id = get_first(station, "StationId", "StationID", "stationId", "stationID")
         station_name = get_first(station, "StationName", "stationName")
-
         if not station_id and not station_name:
             continue
-
         normalized.append(
             {
                 "station_id": str(station_id or station_name),
@@ -174,7 +154,7 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
                 "rainfall": rainfall_now,
                 "rainfall_10min": rainfall_10min,
                 "rainfall_1h": rainfall_1h,
-                "rainfall_today": rainfall_today,
+                "rainfall_24h": rainfall_24h,
                 "wind_speed": parse_float(extract_weather_value(weather_element, "WindSpeed")),
                 "wind_direction": parse_float(extract_weather_value(weather_element, "WindDirection")),
                 "humidity": parse_float(extract_weather_value(weather_element, "RelativeHumidity", "Humidity")),
@@ -188,7 +168,6 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
                 "fetched_at": fetched_at,
             }
         )
-
     return normalized
 
 
@@ -197,7 +176,6 @@ def normalize_moenv_pm25(raw_data: dict[str, Any] | list[Any], dataset_id: str) 
     records = raw_data.get("records", []) if isinstance(raw_data, dict) else raw_data
     if isinstance(records, dict):
         records = [records]
-
     normalized: list[dict[str, Any]] = []
     for record in records:
         if not isinstance(record, dict):
@@ -234,7 +212,6 @@ def normalize_moenv_pm25(raw_data: dict[str, Any] | list[Any], dataset_id: str) 
                 "fetched_at": fetched_at,
             }
         )
-
     return normalized
 
 
@@ -251,7 +228,6 @@ def normalize_f_d0047_091(raw_data: dict[str, Any], dataset_id: str) -> list[dic
     records: list[dict[str, Any]] = []
     fetched_at = now_iso()
     locations = raw_data.get("records", {}).get("Locations", raw_data.get("records", {}).get("locations", []))
-
     for location_group in locations:
         group_name = location_group.get("LocationsName") or location_group.get("locationsName")
         for location in location_group.get("Location", location_group.get("location", [])):
@@ -259,10 +235,8 @@ def normalize_f_d0047_091(raw_data: dict[str, Any], dataset_id: str) -> list[dic
             geocode = location.get("Geocode") or location.get("geocode")
             lat = parse_float(location.get("Latitude") or location.get("latitude") or location.get("lat"))
             lon = parse_float(location.get("Longitude") or location.get("longitude") or location.get("lon"))
-
             weather_elements = location.get("WeatherElement", location.get("weatherElement", []))
             by_time: dict[tuple[str, str | None], dict[str, Any]] = {}
-
             for element in weather_elements:
                 element_name = element.get("ElementName") or element.get("elementName")
                 times = element.get("Time", element.get("time", []))
@@ -296,10 +270,8 @@ def normalize_f_d0047_091(raw_data: dict[str, Any], dataset_id: str) -> list[dic
                             "fetched_at": fetched_at,
                         },
                     )
-
                     values = time_obj.get("ElementValue", time_obj.get("elementValue", []))
                     val_dict = extract_element_value(values)
-
                     if element_name in {"Wx", "天氣現象"}:
                         row["weather"] = val_dict.get("weather")
                         row["weather_code"] = val_dict.get("weathercode")
@@ -317,9 +289,7 @@ def normalize_f_d0047_091(raw_data: dict[str, Any], dataset_id: str) -> list[dic
                         row["wind_speed"] = parse_float(val_dict.get("windspeed") or val_dict.get("value"))
                     elif element_name in {"WD", "風向", "WindDirection"}:
                         row["wind_direction"] = val_dict.get("winddirection") or val_dict.get("value")
-
             for row in by_time.values():
                 if row["weather"] or row["min_temp"] is not None or row["max_temp"] is not None:
                     records.append(row)
-
     return records

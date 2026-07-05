@@ -19,45 +19,11 @@ const DATA_API_PROVIDERS = new Set(["CWA", "MOENV"]);
 type AppPage = "dashboard" | "windy" | "earthquake";
 interface SourceGroup { provider: string; sources: ApiSource[]; }
 
-function formatDateTime(value: string | null): string {
-  if (!value) return "尚未取得";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
-}
-
-function latestTimestamp(values: Array<string | null | undefined>): string | null {
-  const parsed = values.map((value) => {
-    if (!value) return null;
-    const time = new Date(value).getTime();
-    return Number.isNaN(time) ? null : { value, time };
-  }).filter((item): item is { value: string; time: number } => item !== null);
-  if (!parsed.length) return null;
-  return parsed.sort((a, b) => b.time - a.time)[0].value;
-}
-
-function sortCounties(counties: string[]): string[] {
-  return Array.from(new Set(counties.filter(Boolean))).sort((a, b) => {
-    const aIndex = COUNTY_SORT_INDEX.get(a) ?? Number.MAX_SAFE_INTEGER;
-    const bIndex = COUNTY_SORT_INDEX.get(b) ?? Number.MAX_SAFE_INTEGER;
-    if (aIndex !== bIndex) return aIndex - bIndex;
-    return a.localeCompare(b, "zh-Hant-TW");
-  });
-}
-
-function groupApiSources(sources: ApiSource[]): SourceGroup[] {
-  const groups = new Map<string, ApiSource[]>();
-  for (const source of sources.filter((item) => item.status === "active" && DATA_API_PROVIDERS.has(item.provider))) {
-    groups.set(source.provider, [...(groups.get(source.provider) || []), source]);
-  }
-  return Array.from(groups.entries()).map(([provider, groupSources]) => ({ provider, sources: groupSources }));
-}
-
-function formatProviderLabel(provider: string): string {
-  if (provider === "MOENV") return "環境部";
-  if (provider === "CWA") return "中央氣象署";
-  return provider;
-}
+function formatDateTime(value: string | null): string { if (!value) return "尚未取得"; const date = new Date(value); if (Number.isNaN(date.getTime())) return value; return date.toLocaleString(); }
+function latestTimestamp(values: Array<string | null | undefined>): string | null { const parsed = values.map((value) => { if (!value) return null; const time = new Date(value).getTime(); return Number.isNaN(time) ? null : { value, time }; }).filter((item): item is { value: string; time: number } => item !== null); if (!parsed.length) return null; return parsed.sort((a, b) => b.time - a.time)[0].value; }
+function sortCounties(counties: string[]): string[] { return Array.from(new Set(counties.filter(Boolean))).sort((a, b) => { const aIndex = COUNTY_SORT_INDEX.get(a) ?? Number.MAX_SAFE_INTEGER; const bIndex = COUNTY_SORT_INDEX.get(b) ?? Number.MAX_SAFE_INTEGER; if (aIndex !== bIndex) return aIndex - bIndex; return a.localeCompare(b, "zh-Hant-TW"); }); }
+function groupApiSources(sources: ApiSource[]): SourceGroup[] { const groups = new Map<string, ApiSource[]>(); for (const source of sources.filter((item) => item.status === "active" && DATA_API_PROVIDERS.has(item.provider))) groups.set(source.provider, [...(groups.get(source.provider) || []), source]); return Array.from(groups.entries()).map(([provider, groupSources]) => ({ provider, sources: groupSources })); }
+function formatProviderLabel(provider: string): string { if (provider === "MOENV") return "環境部"; if (provider === "CWA") return "中央氣象署"; return provider; }
 
 export const App: React.FC = () => {
   const [activePage, setActivePage] = useState<AppPage>("dashboard");
@@ -72,7 +38,7 @@ export const App: React.FC = () => {
   const [pinnedSourceProvider, setPinnedSourceProvider] = useState<string | null>(null);
   const [selectedCounty, setSelectedCounty] = useState<string>("");
   const [activeMetric, setActiveMetric] = useState<ObservationMetric>("temperature");
-  const [metricMinByMetric, setMetricMinByMetric] = useState<Record<ObservationMetric, number>>({ temperature: 0, rainfall_10min: 0, rainfall_today: 0, humidity: 0, wind_speed: 0, visibility_km: 0, pm25: 0, pm10: 0, o3_8hr: 0, co_8hr: 0, so2: 0, no2: 0 });
+  const [metricMinByMetric, setMetricMinByMetric] = useState<Record<ObservationMetric, number>>({ temperature: 0, rainfall_10min: 0, rainfall_24h: 0, humidity: 0, wind_speed: 0, visibility_km: 0, pm25: 0, pm10: 0, o3_8hr: 0, co_8hr: 0, so2: 0, no2: 0 });
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -81,12 +47,7 @@ export const App: React.FC = () => {
 
   const metricMin = metricMinByMetric[activeMetric];
   const latestObservedAt = useMemo(() => latestTimestamp([...features.map((feature) => feature.properties.observed_at), ...pm25Observations.map((obs) => obs.observed_at), ...earthquakes.map((event) => event.earthquake_time)]), [features, pm25Observations, earthquakes]);
-  const visibleApiSources = useMemo(() => {
-    if (apiSources.length) return apiSources.filter((source) => source.status === "active" && DATA_API_PROVIDERS.has(source.provider));
-    const cwa = Array.from(new Set(features.map((feature) => feature.properties.source_dataset).filter(Boolean)));
-    const moenv = Array.from(new Set(pm25Observations.map((obs) => obs.source_dataset).filter(Boolean)));
-    return [...cwa.map((datasetId) => ({ provider: "CWA", dataset_id: datasetId, title: "即時觀測", category: "current_weather", endpoint: "", status: "active", map_ready: true, coordinate_quality: "測站座標", used_by: ["氣象與雨量觀測"], metrics: [], note: "中央氣象署即時觀測資料來源。" } as ApiSource)), ...moenv.map((datasetId) => ({ provider: "MOENV", dataset_id: datasetId, title: "空氣品質監測即時資料", category: "air_quality", endpoint: "", status: "active", map_ready: true, coordinate_quality: "測站座標", used_by: ["空氣品質觀測"], metrics: [], note: "環境部空氣品質監測資料來源。" } as ApiSource))];
-  }, [apiSources, features, pm25Observations]);
+  const visibleApiSources = useMemo(() => { if (apiSources.length) return apiSources.filter((source) => source.status === "active" && DATA_API_PROVIDERS.has(source.provider)); const cwa = Array.from(new Set(features.map((feature) => feature.properties.source_dataset).filter(Boolean))); const moenv = Array.from(new Set(pm25Observations.map((obs) => obs.source_dataset).filter(Boolean))); return [...cwa.map((datasetId) => ({ provider: "CWA", dataset_id: datasetId, title: "即時觀測", category: "current_weather", endpoint: "", status: "active", map_ready: true, coordinate_quality: "測站座標", used_by: ["氣象與雨量觀測"], metrics: [], note: "中央氣象署即時觀測資料來源。" } as ApiSource)), ...moenv.map((datasetId) => ({ provider: "MOENV", dataset_id: datasetId, title: "空氣品質監測即時資料", category: "air_quality", endpoint: "", status: "active", map_ready: true, coordinate_quality: "測站座標", used_by: ["空氣品質觀測"], metrics: [], note: "環境部空氣品質監測資料來源。" } as ApiSource))]; }, [apiSources, features, pm25Observations]);
   const sourceGroups = useMemo(() => groupApiSources(visibleApiSources), [visibleApiSources]);
   const activeSourceGroup = sourceGroups.find((group) => group.provider === (pinnedSourceProvider || hoveredSourceProvider)) || null;
 
@@ -97,45 +58,15 @@ export const App: React.FC = () => {
       if (!countiesRes.ok) throw new Error("Failed to load county summaries");
       if (!geojsonRes.ok) throw new Error("Failed to load CWA observations");
       if (!pm25Res.ok) throw new Error("Failed to load air-quality observations");
-      const countiesData: CountySummaryResponse = await countiesRes.json();
-      const summaries = countiesData.summaries || [];
-      setCountySummaries(summaries);
-      setCounties(sortCounties(summaries.map((item) => item.county)));
-      const geojsonData: GeoJsonCollection = await geojsonRes.json();
-      setFeatures(geojsonData.features || []);
-      const pm25Data = await pm25Res.json();
-      setPm25Observations(pm25Data.observations || []);
-      if (earthquakesRes.ok) {
-        const earthquakeData: EarthquakeResponse = await earthquakesRes.json();
-        setEarthquakes(earthquakeData.earthquakes || []);
-      }
-      if (healthRes.ok) {
-        const healthData: HealthResponse = await healthRes.json();
-        if (healthData.latest_fetch) setLastUpdate(healthData.latest_fetch.fetched_at);
-      }
-      if (sourcesRes.ok) {
-        const sourceData: ApiSourcesResponse = await sourcesRes.json();
-        setApiSources(sourceData.sources || []);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "An unexpected error occurred");
-    } finally {
-      setLoading(false);
-    }
+      const countiesData: CountySummaryResponse = await countiesRes.json(); const summaries = countiesData.summaries || []; setCountySummaries(summaries); setCounties(sortCounties(summaries.map((item) => item.county)));
+      const geojsonData: GeoJsonCollection = await geojsonRes.json(); setFeatures(geojsonData.features || []);
+      const pm25Data = await pm25Res.json(); setPm25Observations(pm25Data.observations || []);
+      if (earthquakesRes.ok) { const earthquakeData: EarthquakeResponse = await earthquakesRes.json(); setEarthquakes(earthquakeData.earthquakes || []); }
+      if (healthRes.ok) { const healthData: HealthResponse = await healthRes.json(); if (healthData.latest_fetch) setLastUpdate(healthData.latest_fetch.fetched_at); }
+      if (sourcesRes.ok) { const sourceData: ApiSourcesResponse = await sourcesRes.json(); setApiSources(sourceData.sources || []); }
+    } catch (err: any) { console.error(err); setError(err.message || "An unexpected error occurred"); } finally { setLoading(false); }
   };
-
-  const syncLatestObservations = async () => {
-    try {
-      setSyncWarning(null);
-      const refreshRes = await fetch(apiUrl("/api/refresh/observations"), { method: "POST" });
-      if (!refreshRes.ok) throw new Error("Observation sync failed");
-    } catch (err) {
-      console.warn(err);
-      setSyncWarning("自動同步失敗，已顯示上一批資料");
-    }
-  };
-
+  const syncLatestObservations = async () => { try { setSyncWarning(null); const refreshRes = await fetch(apiUrl("/api/refresh/observations"), { method: "POST" }); if (!refreshRes.ok) throw new Error("Observation sync failed"); } catch (err) { console.warn(err); setSyncWarning("自動同步失敗，已顯示上一批資料"); } };
   const loadInitialData = async () => { setLoading(true); setRefreshing(true); try { await syncLatestObservations(); await fetchData(); } finally { setRefreshing(false); } };
   useEffect(() => { void loadInitialData(); }, []);
   useEffect(() => { if (activePage === "windy") setWindyMounted(true); }, [activePage]);
@@ -144,20 +75,7 @@ export const App: React.FC = () => {
   const handleMetricChange = (metric: ObservationMetric) => { setActiveMetric(metric); const config = metricConfigs[metric]; setMetricMinByMetric((current) => ({ ...current, [metric]: current[metric] ?? config.min })); };
   const mapLayerStyle = (visible: boolean): React.CSSProperties => ({ position: "absolute", inset: 0, width: "100%", height: "100%", visibility: visible ? "visible" : "hidden", opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", zIndex: visible ? 2 : 1 });
 
-  return (
-    <>
-      <header className="header-bar">
-        <div className="header-title-container"><span className="header-logo" aria-hidden="true">CWA</span><div><h1 className="header-title">台灣即時氣象、空品與地震觀測</h1><p className="header-subtitle">CWA 觀測、地震震央與環境部污染物指標</p><div className="brand-strip" aria-label="數據 API 來源"><span className="brand-badge brand-cwa">CWA</span><span className="brand-badge brand-moenv">MOENV</span></div></div></div>
-        <div className="header-meta-bar" aria-label="觀測時間與 API 數據來源"><div className="api-meta-card"><div className="api-meta-time"><span><small>觀測時間</small><strong>{formatDateTime(latestObservedAt)}</strong></span><span><small>資料同步</small><strong>{lastUpdate ? formatDateTime(lastUpdate) : "尚未取得同步時間"}</strong></span></div><div className="api-meta-control-panel"><span className="api-label">API 數據來源</span><button className={`header-refresh-btn ${refreshing ? "loading" : ""}`} onClick={handleRefresh} disabled={refreshing} type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>{refreshing ? "同步中" : "更新觀測資料"}</button></div><div className="api-meta-source-panel"><div className="api-source-stack" onMouseLeave={() => setHoveredSourceProvider(null)}>{sourceGroups.map((group) => { const pinned = pinnedSourceProvider === group.provider; return <button key={group.provider} type="button" className={`api-source-row ${pinned ? "active" : ""}`} onMouseEnter={() => setHoveredSourceProvider(group.provider)} onClick={() => setPinnedSourceProvider(pinned ? null : group.provider)}><span className="api-source-name">{formatProviderLabel(group.provider)}</span><strong>{group.sources.length}</strong></button>; })}</div>{activeSourceGroup && <div className="api-source-hover-card"><div className="api-source-hover-title">{formatProviderLabel(activeSourceGroup.provider)}資料來源</div><div className="api-source-hover-list">{activeSourceGroup.sources.map((source) => <div key={`${source.provider}-${source.dataset_id}`} className="api-source-hover-item"><strong>{source.dataset_id}｜{source.title}</strong><span>{source.note}</span><small>{source.metrics.join("、")}</small></div>)}</div></div>}</div></div></div>
-        <nav className="header-nav" aria-label="主要地圖模式"><button className={`nav-btn ${activePage === "dashboard" ? "active" : ""}`} onClick={() => setActivePage("dashboard")} type="button">OSM</button><button className={`nav-btn ${activePage === "windy" ? "active" : ""}`} onClick={() => setActivePage("windy")} type="button">Windy</button><button className={`nav-btn ${activePage === "earthquake" ? "active" : ""}`} onClick={() => setActivePage("earthquake")} type="button">地震</button></nav>
-        <div className="header-actions"><a className="github-btn" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Open GitHub repository"><span>GitHub</span></a><div className="header-status"><span className={`status-dot ${error || syncWarning ? "stale" : ""}`} /><span>{error ? "API 連線異常" : syncWarning ? "同步警告" : "系統正常"}</span></div></div>
-      </header>
-      <main className="app-container">
-        <section className="map-workspace" aria-label="台灣即時觀測地圖"><div className="map-frame">{loading ? <div className="map-loading-state"><div className="map-loading-stack"><div>正在同步並載入最新觀測資料...</div></div></div> : <><div style={mapLayerStyle(activePage === "dashboard")}><MapLibreMap features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} activeMetric={activeMetric} metricMin={metricMin} /><Legend metric={activeMetric} /></div>{windyMounted && <div style={mapLayerStyle(activePage === "windy")}><WindyMapPage features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} activeMetric={activeMetric} metricMin={metricMin} isActive={activePage === "windy"} /></div>}<div style={mapLayerStyle(activePage === "earthquake")}><EarthquakeMap earthquakes={earthquakes} /></div></>}</div></section>
-        {activePage === "earthquake" ? <EarthquakeSummaryPanel earthquakes={earthquakes} /> : <><LayerControl activeMetric={activeMetric} onMetricChange={handleMetricChange} metricMin={metricMin} onMetricMinChange={handleMetricMinChange} /><CountySummaryPanel summaries={countySummaries} counties={counties} features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} onCountySelect={setSelectedCounty} activeMetric={activeMetric} /></>}
-      </main>
-    </>
-  );
+  return <><header className="header-bar"><div className="header-title-container"><span className="header-logo" aria-hidden="true">CWA</span><div><h1 className="header-title">台灣即時氣象、空品與地震觀測</h1><p className="header-subtitle">CWA 觀測、地震震央與環境部污染物指標</p><div className="brand-strip" aria-label="數據 API 來源"><span className="brand-badge brand-cwa">CWA</span><span className="brand-badge brand-moenv">MOENV</span></div></div></div><div className="header-meta-bar" aria-label="觀測時間與 API 數據來源"><div className="api-meta-card"><div className="api-meta-time"><span><small>觀測時間</small><strong>{formatDateTime(latestObservedAt)}</strong></span><span><small>資料同步</small><strong>{lastUpdate ? formatDateTime(lastUpdate) : "尚未取得同步時間"}</strong></span></div><div className="api-meta-control-panel"><span className="api-label">API 數據來源</span><button className={`header-refresh-btn ${refreshing ? "loading" : ""}`} onClick={handleRefresh} disabled={refreshing} type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>{refreshing ? "同步中" : "更新觀測資料"}</button></div><div className="api-meta-source-panel"><div className="api-source-stack" onMouseLeave={() => setHoveredSourceProvider(null)}>{sourceGroups.map((group) => { const pinned = pinnedSourceProvider === group.provider; return <button key={group.provider} type="button" className={`api-source-row ${pinned ? "active" : ""}`} onMouseEnter={() => setHoveredSourceProvider(group.provider)} onClick={() => setPinnedSourceProvider(pinned ? null : group.provider)}><span className="api-source-name">{formatProviderLabel(group.provider)}</span><strong>{group.sources.length}</strong></button>; })}</div>{activeSourceGroup && <div className="api-source-hover-card"><div className="api-source-hover-title">{formatProviderLabel(activeSourceGroup.provider)}資料來源</div><div className="api-source-hover-list">{activeSourceGroup.sources.map((source) => <div key={`${source.provider}-${source.dataset_id}`} className="api-source-hover-item"><strong>{source.dataset_id}｜{source.title}</strong><span>{source.note}</span><small>{source.metrics.join("、")}</small></div>)}</div></div>}</div></div></div><nav className="header-nav" aria-label="主要地圖模式"><button className={`nav-btn ${activePage === "dashboard" ? "active" : ""}`} onClick={() => setActivePage("dashboard")} type="button">OSM</button><button className={`nav-btn ${activePage === "windy" ? "active" : ""}`} onClick={() => setActivePage("windy")} type="button">Windy</button><button className={`nav-btn ${activePage === "earthquake" ? "active" : ""}`} onClick={() => setActivePage("earthquake")} type="button">地震</button></nav><div className="header-actions"><a className="github-btn" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Open GitHub repository"><span>GitHub</span></a><div className="header-status"><span className={`status-dot ${error || syncWarning ? "stale" : ""}`} /><span>{error ? "API 連線異常" : syncWarning ? "同步警告" : "系統正常"}</span></div></div></header><main className="app-container"><section className="map-workspace" aria-label="台灣即時觀測地圖"><div className="map-frame">{loading ? <div className="map-loading-state"><div className="map-loading-stack"><div>正在同步並載入最新觀測資料...</div></div></div> : <><div style={mapLayerStyle(activePage === "dashboard")}><MapLibreMap features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} activeMetric={activeMetric} metricMin={metricMin} /><Legend metric={activeMetric} /></div>{windyMounted && <div style={mapLayerStyle(activePage === "windy")}><WindyMapPage features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} activeMetric={activeMetric} metricMin={metricMin} isActive={activePage === "windy"} /></div>}<div style={mapLayerStyle(activePage === "earthquake")}><EarthquakeMap earthquakes={earthquakes} /></div></>}</div></section>{activePage === "earthquake" ? <EarthquakeSummaryPanel earthquakes={earthquakes} /> : <><LayerControl activeMetric={activeMetric} onMetricChange={handleMetricChange} metricMin={metricMin} onMetricMinChange={handleMetricMinChange} /><CountySummaryPanel summaries={countySummaries} counties={counties} features={features} pm25Observations={pm25Observations} selectedCounty={selectedCounty} onCountySelect={setSelectedCounty} activeMetric={activeMetric} /></>}</main></>;
 };
 
 export default App;

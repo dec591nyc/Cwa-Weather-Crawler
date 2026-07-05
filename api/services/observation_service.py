@@ -6,7 +6,7 @@ from database.connection import get_connection
 
 INVALID_NUMERIC_VALUES = {-99.0, -990.0, -999.0, -9999.0}
 NUMERIC_OBSERVATION_FIELDS = {
-    "lat", "lon", "altitude_m", "temperature", "rainfall", "rainfall_10min", "rainfall_1h", "rainfall_today",
+    "lat", "lon", "altitude_m", "temperature", "rainfall", "rainfall_10min", "rainfall_1h", "rainfall_24h",
     "wind_speed", "wind_direction", "humidity", "visibility_km", "uv_index", "daily_high", "daily_low",
     "aqi", "pm25", "pm25_avg", "pm10", "pm10_avg", "so2", "co", "co_8hr", "o3", "o3_8hr", "no2", "nox", "no",
 }
@@ -73,7 +73,7 @@ def county_summary() -> dict:
                 "rainfall": _stats([row.get("rainfall") for row in county_weather]),
                 "rainfall_10min": _stats([row.get("rainfall_10min") for row in county_weather]),
                 "rainfall_1h": _stats([row.get("rainfall_1h") for row in county_weather]),
-                "rainfall_today": _stats([row.get("rainfall_today") for row in county_weather]),
+                "rainfall_24h": _stats([row.get("rainfall_24h") for row in county_weather]),
                 "wind_speed": _stats([row.get("wind_speed") for row in county_weather]),
                 "wind_direction_avg": _circular_mean_degrees([row.get("wind_direction") for row in county_weather]),
                 "humidity": _stats([row.get("humidity") for row in county_weather]),

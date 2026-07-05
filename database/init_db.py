@@ -9,7 +9,7 @@ SCHEMA_MIGRATIONS = {
     "weather_observations": {
         "rainfall_10min": "REAL",
         "rainfall_1h": "REAL",
-        "rainfall_today": "REAL",
+        "rainfall_24h": "REAL",
         "visibility_km": "REAL",
         "visibility_description": "TEXT",
     },
