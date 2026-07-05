@@ -31,10 +31,10 @@ MVP 定位為「以即時或近即時資料為主的台灣氣象與 PM2.5 dashbo
 MVP 包含：
 
 - 一支 CWA 即時/近即時觀測 API。
-- 一支 MOENV PM2.5 API。
+- 一支 MOENV 空氣污染物觀測 API。
 - CWA 與 MOENV key 只由後端控管。
-- OSM/MapLibre 作為正式 dashboard 地圖；Windy 與第三方天氣疊圖暫緩，不進 MVP 主介面。
-- 各縣市目前氣溫、降水、風速、風向、相對濕度、PM2.5 狀態。
+- OSM 作為正式 dashboard 主地圖；Windy 作為可切換的風場視覺背景。
+- 各縣市目前氣溫、降水、風速、風向、相對濕度、PM2.5 與污染物狀態。
 - 測站 marker、popup、縣市統計表、排行、資料更新時間。
 - PM2.5 從 MVP 起就定期寫入 SQLite，累積自己的時間序列。
 
@@ -42,8 +42,7 @@ MVP 不包含：
 
 - 未來天氣預報。
 - 長期氣候歷史分析。
-- 完整 AQI dashboard。
-- PM10、O3、NO2、SO2、CO 等多污染物前端分析。
+- 綜合空品分數 dashboard。
 - 機器學習、AI 預測、年度/季節/極端氣候統計。
 
 ## 3. API Research 狀態
@@ -53,7 +52,7 @@ MVP 不包含：
 - CWA 官方 OpenAPI：`https://opendata.cwa.gov.tw/apidoc/v1`
 - CWA 測站清單參考：`https://hdps.cwa.gov.tw/static/state.html`
 - MOENV 官方 OpenAPI：`https://data.moenv.gov.tw/swagger/openapi.yaml`
-- Windy Map Forecast API docs / pricing；因前端 key/domain 與第三方 script 風險，MVP 已決策移除。
+- Windy Map Forecast API docs / pricing；目前只作為風場視覺背景，不作為數據真相來源。
 
 實測狀態：
 
@@ -70,11 +69,11 @@ MVP 不包含：
 | 氣象觀測站全測站逐時氣象資料 | `O-A0001-001` | 觀測 | 官方名稱為逐時資料 | 待有效 key | 有，`GeoInfo=CountyName,TownName` | 有，`GeoInfo=Coordinates` | 有，`AirTemperature` | 有，`DailyHigh`, `DailyLow` | 可能由 `Now` 表示，需確認 | 有 | 有 | 有 | 官方 enum 未列 `UVIndex` | 無 | 非長期歷史來源 | 8/10 | 8/10 | 若 `O-A0003-001` 覆蓋不足或缺值過高，改用此 API。 |
 | 鄉鎮天氣預報全臺灣各鄉鎮市區預報資料 | `F-D0047-093` | 預報 | 預報更新 | 非 MVP 重點 | 有預報地點 | 非測站觀測模型 | 依 element | 依 element | 依 element | 依 element | 依 element | 依 element | 非主資料 | 無 | 預報期間 | 5/10 | 3/10 | MVP 不使用，除非產品回到預報方向。 |
 | 鄉鎮天氣預報臺灣未來 1 週 | `F-D0047-091` | 預報 | 1 週預報 | 目前程式使用 | 有 | 現有 normalizer 嘗試解析 | 有 | 有 | PoP，不是實測降雨 | 有 | 有 | 有 | 非主資料 | 無 | 預報期間 | 5/10 | 2/10 | 現有來源，但不作為新 MVP 核心。 |
-| 空氣品質指標 AQI | `aqx_p_432` | 空品即時狀態 | 待環境部實際更新節奏確認 | 84 筆，22 縣市 | 有 | 有 | 非氣象主資料 | 無 | 無 | 不作為氣象來源 | 不作為氣象來源 | 無 | 無 | 無 | 即時空品 | 9/10 | 9/10 | 確定作為 MVP PM2.5 來源；只使用 PM2.5 與 PM2.5_AVG。 |
+| 空氣品質監測即時資料 | `aqx_p_432` | 空品即時狀態 | 待環境部實際更新節奏確認 | 84 筆，22 縣市 | 有 | 有 | 非氣象主資料 | 無 | 無 | 不作為氣象來源 | 不作為氣象來源 | 無 | 無 | 無 | 即時空品 | 9/10 | 9/10 | 確定作為 MVP 空氣污染物來源；前端使用 PM2.5、PM10、O3、CO、SO2、NO2 等具體測項。 |
 | 細懸浮微粒資料 PM2.5 | `aqx_p_02` | PM2.5 | 待有效 key 確認 | 待有效 key | 待驗證 | 待驗證 | 無 | 無 | 無 | 無 | 無 | 無 | 無 | 無 | 未確認 | 7/10 | 7/10 | 若比 `aqx_p_432` 更乾淨且 metadata 足夠，可作 PM2.5 主來源。 |
 | 鹿林山紫外線即時監測資料 | `uv_s_01` | UV | 即時資料集名稱 | 可能很有限 | 不適合全台 | 待驗證 | 無 | 無 | 無 | 無 | 無 | 無 | 有，但疑似單站/特定站 | 無 | 即時 UV | 4/10 | 2/10 | 不作 MVP 全台 UV 主來源。 |
 | 紫外線測站位置圖 | `gisepa_p_26` | UV metadata | 靜態/位置資料 | 待驗證 | 待驗證 | 可能有 | 無 | 無 | 無 | 無 | 無 | 無 | 只有測站位置 | 無 | metadata | 4/10 | 2/10 | 只能輔助，不能提供 UV 即時值。 |
-| Windy Map Forecast API | 視覺 API | 地圖/forecast overlay | 依模型與方案 | 非測站資料 | 不是統計來源 | 地圖座標 | overlay | overlay | overlay | overlay | overlay | overlay | 需依方案/overlay 支援確認 | 有 satellite/cloud 等視覺層 | forecast 視覺 | 7/10 | 暫緩 | 已從 MVP 介面移除；後續若要恢復，需先解決 key/domain、production plan 與 lifecycle 風險。 |
+| Windy Map Forecast API | 視覺 API | 地圖/forecast overlay | 依模型與方案 | 非測站資料 | 不是統計來源 | 地圖座標 | overlay | overlay | overlay | overlay | overlay | overlay | 需依方案/overlay 支援確認 | 有 satellite/cloud 等視覺層 | forecast 視覺 | 7/10 | 視覺輔助 | 作為風場背景與地圖視覺化輔助，不作為後端統計來源。 |
 
 ## 5. CWA API 選擇
 
@@ -104,15 +103,14 @@ MVP 不包含：
 - 計算氣溫、降水、風速、風向、濕度、UV 的缺值率。
 - 確認 `Now` 欄位到底是目前天氣、現在天氣代碼、降水或其他結構，避免 UI 誤標。
 
-## 6. PM2.5 API 選擇
+## 6. 空氣污染物 API 選擇
 
 主選：MOENV `aqx_p_432`。2026-07-03 live validation 已通過，MVP 採用此資料集。
 
 理由：
 
 - PM2.5 與空品資料主責來源是環境部，不是 CWA。
-- 官方 OpenAPI 確認 `aqx_p_432` 是「空氣品質指標(AQI)」。
-- 若 live records 同時包含 PM2.5、PM2.5_AVG、站名、站號、縣市、經緯度、發布時間，最適合 MVP。
+- 若 live records 同時包含 PM2.5、PM10、O3、CO、SO2、NO2、站名、站號、縣市、經緯度、發布時間，最適合 MVP。
 
 備選：MOENV `aqx_p_02`。
 
@@ -123,9 +121,8 @@ MVP 不包含：
 
 MVP 規則：
 
-- 前端核心只呈現 PM2.5 與 PM2.5_AVG。
-- AQI、PM10、O3、NO2、SO2、CO 若原始 API 一併回傳，可被動存 raw snapshot，但不做 MVP 前端功能。
-- PM2.5 必須從 MVP 起定期寫入 SQLite。
+- 前端核心呈現 PM2.5、PM10、O3、NO2、SO2、CO 等具體污染物測項。
+- PM2.5 與污染物觀測資料必須從 MVP 起定期寫入 SQLite。
 
 ## 7. UV 可行性
 
@@ -146,7 +143,7 @@ MVP 規則：
 
 ## 8. 地圖與天氣疊圖策略
 
-正式 dashboard 目前固定使用 MapLibre + OpenStreetMap。Windy 與 RainViewer 類第三方天氣疊圖已從 MVP 主介面移除。
+正式 dashboard 以 OpenStreetMap 底圖呈現測站觀測資料，並保留 Windy 作為可切換的風場視覺背景。RainViewer 類第三方雷達/衛星疊圖不進入主介面。
 
 後端統計真相來源：
 
@@ -219,7 +216,7 @@ PM2.5：
 
 MVP UI：
 
-- OSM/MapLibre 主地圖。
+- OSM 主地圖。
 - CWA weather station markers。
 - PM2.5 station markers 或 PM2.5 marker mode。
 - 縣市目前氣象/PM2.5 統計表。
@@ -241,8 +238,7 @@ MVP UI：
 
 MVP 不做：
 
-- 完整 AQI dashboard。
-- PM10、O3、NO2、SO2、CO 前端分析。
+- 綜合空品分數 dashboard。
 - 多污染物空污研究。
 - 未來天氣預報。
 - 長期歷史氣候分析。
@@ -286,7 +282,7 @@ MVP 不做：
    - `/api/pm25/latest`
    - `/api/summary/counties`
    - `/api/health`
-8. 固定 OSM/MapLibre 主地圖，移除 Windy 與第三方天氣疊圖。
+8. 固定 OSM 主地圖，保留 Windy 作為可切換的風場視覺背景，移除第三方雷達/衛星疊圖。
 9. 加入 CWA 與 PM2.5 markers。
 10. 加入縣市統計、表格、排行。
 11. 更新 README 與 `.env.example`。

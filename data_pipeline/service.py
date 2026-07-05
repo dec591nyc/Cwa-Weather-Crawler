@@ -28,12 +28,20 @@ def sync_forecasts() -> int:
         raise
 
 
-def _sync_cwa_observation_dataset(dataset_id: str, params: dict | None = None) -> int:
+def _sync_cwa_observation_dataset(
+    dataset_id: str,
+    params: dict | None = None,
+    zero_missing_fields: tuple[str, ...] = (),
+) -> int:
     fetched_at = now_iso()
     client = CwaClient(settings.cwa_api_key, dataset_id)
     try:
         raw_data, response_ms = client.fetch(params)
         records = normalize_cwa_observations(raw_data, dataset_id)
+        for record in records:
+            for field in zero_missing_fields:
+                if record.get(field) is None:
+                    record[field] = 0
         save_raw_snapshot(dataset_id, raw_data, fetched_at)
         count = save_weather_observations(records)
         log_fetch(dataset_id, fetched_at, "success", count, response_ms)
@@ -52,7 +60,6 @@ def sync_rainfall_observations() -> int:
         "RainfallElement": [
             "Now",
             "Past10Min",
-            "Past15Min",
             "Past1hr",
             "DailyRainfall",
             "TodayRainfall",
@@ -60,7 +67,7 @@ def sync_rainfall_observations() -> int:
         ],
         "GeoInfo": ["Coordinates", "StationAltitude", "CountyName", "TownName"],
     }
-    return _sync_cwa_observation_dataset(settings.cwa_rainfall_dataset_id, params)
+    return _sync_cwa_observation_dataset(settings.cwa_rainfall_dataset_id, params, zero_missing_fields=("rainfall_today",))
 
 
 def sync_pm25_observations() -> int:

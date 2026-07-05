@@ -22,6 +22,7 @@ const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
 const GITHUB_URL = "https://github.com/dec591nyc/CWA-GeoMap_Monitor";
 const COUNTY_SORT_ORDER = ["基隆市", "臺北市", "新北市", "桃園市", "新竹縣", "新竹市", "苗栗縣", "臺中市", "彰化縣", "南投縣", "雲林縣", "嘉義縣", "嘉義市", "臺南市", "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣", "金門縣", "連江縣"];
 const COUNTY_SORT_INDEX = new Map<string, number>(COUNTY_SORT_ORDER.flatMap((county, index): Array<[string, number]> => [[county, index], [county.replace("臺", "台"), index]]));
+const DATA_API_PROVIDERS = new Set(["CWA", "MOENV"]);
 
 type AppPage = "dashboard" | "windy";
 interface SourceGroup { provider: string; sources: ApiSource[]; }
@@ -56,7 +57,7 @@ function sortCounties(counties: string[]): string[] {
 
 function groupApiSources(sources: ApiSource[]): SourceGroup[] {
   const groups = new Map<string, ApiSource[]>();
-  for (const source of sources.filter((item) => item.status === "active")) {
+  for (const source of sources.filter((item) => item.status === "active" && DATA_API_PROVIDERS.has(item.provider))) {
     groups.set(source.provider, [...(groups.get(source.provider) || []), source]);
   }
   return Array.from(groups.entries()).map(([provider, groupSources]) => ({ provider, sources: groupSources }));
@@ -65,7 +66,6 @@ function groupApiSources(sources: ApiSource[]): SourceGroup[] {
 function formatProviderLabel(provider: string): string {
   if (provider === "MOENV") return "環境部";
   if (provider === "CWA") return "中央氣象署";
-  if (provider === "OpenStreetMap") return "OSM";
   return provider;
 }
 
@@ -107,7 +107,7 @@ export const App: React.FC = () => {
   const latestObservedAt = useMemo(() => latestTimestamp([...features.map((feature) => feature.properties.observed_at), ...pm25Observations.map((obs) => obs.observed_at)]), [features, pm25Observations]);
 
   const visibleApiSources = useMemo(() => {
-    if (apiSources.length) return apiSources.filter((source) => source.status === "active");
+    if (apiSources.length) return apiSources.filter((source) => source.status === "active" && DATA_API_PROVIDERS.has(source.provider));
     const cwa = Array.from(new Set(features.map((feature) => feature.properties.source_dataset).filter(Boolean)));
     const moenv = Array.from(new Set(pm25Observations.map((obs) => obs.source_dataset).filter(Boolean)));
     return [
@@ -201,8 +201,8 @@ export const App: React.FC = () => {
           <span className="header-logo" aria-hidden="true">CWA</span>
           <div>
             <h1 className="header-title">台灣即時氣象與空品觀測</h1>
-            <p className="header-subtitle">CWA 觀測、環境部污染物指標、OSM / Windy 地圖底圖</p>
-            <div className="brand-strip" aria-label="資料與地圖服務"><span className="brand-badge brand-cwa">CWA</span><span className="brand-badge brand-moenv">MOENV</span><span className="brand-badge brand-osm">OSM</span><span className="brand-badge brand-windy">Windy</span></div>
+            <p className="header-subtitle">CWA 觀測、環境部空氣品質與污染物指標</p>
+            <div className="brand-strip" aria-label="數據 API 來源"><span className="brand-badge brand-cwa">CWA</span><span className="brand-badge brand-moenv">MOENV</span></div>
           </div>
         </div>
 
@@ -211,25 +211,25 @@ export const App: React.FC = () => {
             <div className="api-meta-time"><span><small>觀測時間</small><strong>{formatDateTime(latestObservedAt)}</strong></span><span><small>資料同步</small><strong>{lastUpdate ? formatDateTime(lastUpdate) : "尚未取得同步時間"}</strong></span></div>
             <div className="api-meta-control-panel"><span className="api-label">API 數據來源</span><button className={`header-refresh-btn ${refreshing ? "loading" : ""}`} onClick={handleRefresh} disabled={refreshing} type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>{refreshing ? "同步中" : "更新觀測資料"}</button></div>
             <div className="api-meta-source-panel">
-              <div className="api-source-stack" style={{ position: "relative", display: "flex", flexWrap: "wrap", gap: "0.42rem" }} onMouseLeave={() => setHoveredSourceProvider(null)}>
+              <div className="api-source-stack" onMouseLeave={() => setHoveredSourceProvider(null)}>
                 {sourceGroups.map((group) => {
                   const pinned = pinnedSourceProvider === group.provider;
                   return (
-                    <button key={group.provider} type="button" className={`api-source-row ${pinned ? "active" : ""}`} onMouseEnter={() => setHoveredSourceProvider(group.provider)} onClick={() => setPinnedSourceProvider(pinned ? null : group.provider)} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", border: "1px solid rgba(15, 23, 42, 0.12)", borderRadius: 999, padding: "0.28rem 0.58rem", background: pinned ? "#e0f2fe" : "#ffffff" }}>
+                    <button key={group.provider} type="button" className={`api-source-row ${pinned ? "active" : ""}`} onMouseEnter={() => setHoveredSourceProvider(group.provider)} onClick={() => setPinnedSourceProvider(pinned ? null : group.provider)}>
                       <span className="api-source-name">{formatProviderLabel(group.provider)}</span><strong>{group.sources.length}</strong>
                     </button>
                   );
                 })}
               </div>
               {activeSourceGroup && (
-                <div className="api-source-hover-card" style={{ marginTop: "0.46rem", border: "1px solid rgba(15, 23, 42, 0.14)", borderRadius: 10, background: "#ffffff", padding: "0.65rem", boxShadow: "0 10px 24px rgba(15, 23, 42, 0.12)", minWidth: 300 }}>
-                  <div style={{ fontWeight: 900, marginBottom: "0.45rem" }}>{formatProviderLabel(activeSourceGroup.provider)}資料來源</div>
-                  <div style={{ display: "grid", gap: "0.48rem" }}>
+                <div className="api-source-hover-card">
+                  <div className="api-source-hover-title">{formatProviderLabel(activeSourceGroup.provider)}資料來源</div>
+                  <div className="api-source-hover-list">
                     {activeSourceGroup.sources.map((source) => (
-                      <div key={`${source.provider}-${source.dataset_id}`} style={{ display: "grid", gap: "0.18rem" }}>
-                        <strong style={{ fontSize: "0.82rem" }}>{source.dataset_id}｜{source.title}</strong>
-                        <span style={{ color: "#475569", fontSize: "0.75rem", lineHeight: 1.45 }}>{source.note}</span>
-                        <small style={{ color: "#64748b", fontWeight: 800 }}>{source.metrics.join("、")}</small>
+                      <div key={`${source.provider}-${source.dataset_id}`} className="api-source-hover-item">
+                        <strong>{source.dataset_id}｜{source.title}</strong>
+                        <span>{source.note}</span>
+                        <small>{source.metrics.join("、")}</small>
                       </div>
                     ))}
                   </div>

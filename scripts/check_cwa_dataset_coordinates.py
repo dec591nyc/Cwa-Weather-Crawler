@@ -6,6 +6,9 @@ from collections.abc import Iterable
 from typing import Any
 
 import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 CWA_REST_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/{dataset_id}"
 CANDIDATE_DATASETS = [
@@ -53,10 +56,11 @@ def find_coordinate_fields(payload: dict[str, Any]) -> list[dict[str, str]]:
 
 def fetch_dataset(dataset_id: str, api_key: str) -> dict[str, Any]:
     response = requests.get(
-        CWA_REST_URL.format(dataset_id=dataset_id),
-        params={"Authorization": api_key, "format": "JSON", "limit": 3},
-        timeout=30,
-    )
+    CWA_REST_URL.format(dataset_id=dataset_id),
+    params={"Authorization": api_key, "format": "JSON", "limit": 3},
+    timeout=30,
+    verify=False,
+)
     response.raise_for_status()
     return response.json()
 

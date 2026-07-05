@@ -20,8 +20,8 @@ export interface LegendItem { label: string; color: string; desc: string; stop: 
 
 export const metricConfigs: Record<ObservationMetric, MetricConfig> = {
   temperature: { id: "temperature", label: "氣溫", shortLabel: "TEMP", unit: "°C", source: "weather", valueKey: "temperature", min: 0, max: 40, step: 1, decimals: 1, legendTitle: "氣溫級距", emptyLabel: "無氣溫", description: "測站即時氣溫。" },
-  rainfall_10min: { id: "rainfall_10min", label: "短週期降雨量", shortLabel: "10M RAIN", unit: "mm", source: "weather", valueKey: "rainfall_10min", min: 0, max: 50, step: 0.5, decimals: 1, legendTitle: "短週期降雨量級距", emptyLabel: "無短週期雨量", description: "最近 10 至 15 分鐘內的降雨量，用於觀察即時強降雨。" },
-  rainfall_today: { id: "rainfall_today", label: "當天累積雨量", shortLabel: "DAY RAIN", unit: "mm", source: "weather", valueKey: "rainfall_today", min: 0, max: 350, step: 5, decimals: 1, legendTitle: "當天累積雨量級距", emptyLabel: "無當天累積雨量", description: "今日累積雨量。若測站未提供今日累積欄位，畫面會顯示無資料。" },
+  rainfall_10min: { id: "rainfall_10min", label: "10 分鐘降雨量", shortLabel: "10M RAIN", unit: "mm", source: "weather", valueKey: "rainfall_10min", min: 0, max: 50, step: 0.5, decimals: 1, legendTitle: "10 分鐘降雨量級距", emptyLabel: "無 10 分鐘雨量", description: "最近 10 分鐘內的降雨量，用於觀察即時強降雨。" },
+  rainfall_today: { id: "rainfall_today", label: "當天累積雨量", shortLabel: "DAY RAIN", unit: "mm", source: "weather", valueKey: "rainfall_today", min: 0, max: 350, step: 5, decimals: 1, legendTitle: "當天累積雨量級距", emptyLabel: "無當天累積雨量", description: "今日累積雨量。若 API 連線成功但測站未提供今日累積欄位，畫面會以 0 顯示。" },
   humidity: { id: "humidity", label: "濕度", shortLabel: "RH", unit: "%", source: "weather", valueKey: "humidity", min: 0, max: 100, step: 5, decimals: 0, legendTitle: "相對濕度級距", emptyLabel: "無濕度", description: "相對濕度，數值越高代表空氣越潮濕。" },
   wind_speed: { id: "wind_speed", label: "風速", shortLabel: "WIND", unit: "m/s", source: "weather", valueKey: "wind_speed", min: 0, max: 25, step: 1, decimals: 1, legendTitle: "風速級距", emptyLabel: "無風速", description: "測站風速，適合觀察強風與陣風風險。" },
   visibility_km: { id: "visibility_km", label: "能見度", shortLabel: "VIS", unit: "km", source: "weather", valueKey: "visibility_km", min: 0, max: 30, step: 1, decimals: 1, legendTitle: "能見度級距", emptyLabel: "無能見度", description: "水平能見距離，數值越低代表霧、雨、霾或空污可能影響視線。" },
@@ -93,7 +93,12 @@ export function getMapLibreColorExpression(metric: ObservationMetric): unknown[]
 
 export function formatMetricValue(metric: ObservationMetric, value: number | null): string {
   const config = metricConfigs[metric];
-  if (value === null || Number.isNaN(value)) return "-";
+  if (value === null || Number.isNaN(value)) {
+    if (metric === "rainfall_10min" || metric === "rainfall_today") {
+      return `${(0).toFixed(config.decimals)}${config.unit}`;
+    }
+    return "-";
+  }
   return `${value.toFixed(config.decimals)}${config.unit}`;
 }
 
@@ -101,6 +106,7 @@ export function getWeatherMetricValue(props: ForecastProperties, metric: Observa
   const config = metricConfigs[metric];
   if (config.source !== "weather") return null;
   const rawValue = props[config.valueKey as keyof ForecastProperties];
+  if ((metric === "rainfall_10min" || metric === "rainfall_today") && rawValue == null) return 0;
   return typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null;
 }
 

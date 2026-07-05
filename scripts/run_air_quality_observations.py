@@ -10,4 +10,4 @@ from data_pipeline.service import sync_pm25_observations
 if __name__ == "__main__":
     init_db()
     count = sync_pm25_observations()
-    print(f"Saved {count} PM2.5 records into weather.db")
+    print(f"Saved {count} air quality observation records into weather.db")

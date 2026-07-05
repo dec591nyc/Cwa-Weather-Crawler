@@ -243,8 +243,8 @@ export const WindyMapPage: React.FC<WindyMapPageProps> = ({
           <div class="popup-metric-large">${config.label} ${formatMetricValue(activeMetric, value)}</div>
           <dl>
             <dt>氣溫</dt><dd>${props.temperature ?? "-"} °C</dd>
-            <dt>即時降水</dt><dd>${props.rainfall ?? "-"} mm</dd>
-            <dt>24h累積雨量</dt><dd>${props.rainfall_24h ?? "-"} mm</dd>
+            <dt>10 分鐘降雨量</dt><dd>${props.rainfall_10min ?? 0} mm</dd>
+            <dt>當天累積雨量</dt><dd>${props.rainfall_today ?? 0} mm</dd>
             <dt>濕度</dt><dd>${props.humidity ?? "-"}%</dd>
             <dt>風速</dt><dd>${props.wind_speed ?? "-"} m/s</dd>
             <dt>能見度</dt><dd>${props.visibility_description || props.visibility_km || "-"}</dd>

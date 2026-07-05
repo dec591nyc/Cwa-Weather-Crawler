@@ -137,7 +137,7 @@ def normalize_cwa_observations(raw_data: dict[str, Any], dataset_id: str) -> lis
         observed_at = get_first(obs_time, "DateTime", "dateTime", "DataTime", "dataTime") if isinstance(obs_time, dict) else obs_time
 
         rainfall_now = extract_rainfall_value(rainfall_element, weather_element, "Now", "Precipitation")
-        rainfall_10min = extract_rainfall_value(rainfall_element, weather_element, "Past10Min", "Past10min", "Past10Minutes", "Past15Min", "Past15min", "Past15Minutes")
+        rainfall_10min = extract_rainfall_value(rainfall_element, weather_element, "Past10Min", "Past10min", "Past10Minutes")
         rainfall_1h = extract_rainfall_value(rainfall_element, weather_element, "Past1hr", "Past1Hour", "Past1Hr", "HourRainfall")
         rainfall_today = extract_rainfall_value(
             rainfall_element,

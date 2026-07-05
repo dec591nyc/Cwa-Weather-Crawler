@@ -4,8 +4,8 @@
 
 - 後端：FastAPI、SQLite、CWA/MOENV crawler。
 - 前端：React/Vite、MapLibre、OpenStreetMap 底圖。
-- 資料：CWA 即時觀測、MOENV PM2.5、縣市摘要統計。
-- 已移除：Windy 頁面與第三方天氣疊圖，不需要 `VITE_WINDY_API_KEY`。
+- 資料：CWA 即時觀測、MOENV 空氣污染物觀測、縣市摘要統計。
+- Windy：作為可切換的風場視覺背景；若部署環境要啟用此模式，前端需要設定 `VITE_WINDY_API_KEY`。
 
 ## 建議架構
 
@@ -27,7 +27,7 @@ MVP 建議先分開部署：
 ```powershell
 py scripts/init_db.py
 py scripts/run_weather_observations.py
-py scripts/run_pm25.py
+py scripts/run_air_quality_observations.py
 uvicorn api.main:app --reload
 ```
 
@@ -43,7 +43,7 @@ npm run build
 
 - `/api/health` 有回應。
 - `/api/weather/stations.geojson` 有 feature。
-- `/api/pm25/latest` 有 observations。
+- `/api/air-quality/latest` 有 observations。
 - `/api/summary/counties` 有 summaries。
 - 前端沒有 `windyInit`、`Zoom Level not supported` 或 `/api` 404。
 
@@ -62,7 +62,7 @@ pip install -r requirements.txt
 6. Start Command 建議 MVP 先用「啟動時自動初始化 + 灌第一批資料」：
 
 ```bash
-python scripts/init_db.py && python scripts/run_weather_observations.py && python scripts/run_pm25.py && uvicorn api.main:app --host 0.0.0.0 --port $PORT
+python scripts/init_db.py && python scripts/run_weather_observations.py && python scripts/run_air_quality_observations.py && uvicorn api.main:app --host 0.0.0.0 --port $PORT
 ```
 
 這樣就不需要 Render Shell。缺點是每次服務重啟時都會先跑一次 crawler，啟動會比較慢，但對 MVP demo 來說最直覺。等功能穩定後，可以再把 Start Command 改回只初始化資料庫並啟動 API：
@@ -107,7 +107,7 @@ curl https://your-backend.onrender.com/api/summary/counties
 
 ```bash
 curl -X POST https://your-backend.onrender.com/api/refresh/weather
-curl -X POST https://your-backend.onrender.com/api/refresh/pm25
+curl -X POST https://your-backend.onrender.com/api/refresh/air-quality
 curl https://your-backend.onrender.com/api/summary/counties
 ```
 
@@ -115,7 +115,7 @@ Windows PowerShell 如果沒有 `curl`，可改用：
 
 ```powershell
 Invoke-RestMethod -Method Post https://your-backend.onrender.com/api/refresh/weather
-Invoke-RestMethod -Method Post https://your-backend.onrender.com/api/refresh/pm25
+Invoke-RestMethod -Method Post https://your-backend.onrender.com/api/refresh/air-quality
 Invoke-RestMethod https://your-backend.onrender.com/api/summary/counties
 ```
 
@@ -141,8 +141,8 @@ jobs:
       - name: Refresh weather observations
         run: curl -f -X POST "${{ secrets.API_BASE_URL }}/api/refresh/weather"
 
-      - name: Refresh PM2.5 observations
-        run: curl -f -X POST "${{ secrets.API_BASE_URL }}/api/refresh/pm25"
+      - name: Refresh air quality observations
+        run: curl -f -X POST "${{ secrets.API_BASE_URL }}/api/refresh/air-quality"
 ```
 
 GitHub Actions Secrets 需要設定：
@@ -197,14 +197,14 @@ VITE_API_BASE_URL=https://your-backend.onrender.com
 
 ```text
 POST /api/refresh/weather
-POST /api/refresh/pm25
+POST /api/refresh/air-quality
 ```
 
 MVP 可以先用 GitHub Actions 或外部 cron 定期呼叫：
 
 ```bash
 curl -X POST https://your-backend.onrender.com/api/refresh/weather
-curl -X POST https://your-backend.onrender.com/api/refresh/pm25
+curl -X POST https://your-backend.onrender.com/api/refresh/air-quality
 ```
 
 正式公開前應補 refresh endpoint 權限控管，避免任何人都能觸發 crawler。比較穩的做法是：
@@ -247,7 +247,7 @@ RAW_DATA_DIR=/var/data/raw
 - 後端 `/api/health` 正常。
 - 後端 `/api/summary/counties` 至少有 22 個縣市摘要。
 - 前端 `VITE_API_BASE_URL` 指向後端正式網址。
-- OSM 地圖可載入，沒有 Windy 或 RainViewer 錯誤。
+- OSM 地圖可載入；若啟用 Windy 模式，Windy key 與網域授權需可正常載入。
 - 重新整理頁面後統計、排行、圖例仍正常。
 - SQLite 路徑在 persistent disk。
 - 第一批資料初始化流程不依賴 Render Shell。

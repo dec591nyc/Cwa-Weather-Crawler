@@ -44,6 +44,15 @@ def refresh_pm25():
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.post("/refresh/air-quality")
+def refresh_air_quality():
+    try:
+        count = sync_pm25_observations()
+        return {"status": "ok", "record_count": count}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.post("/refresh/observations")
 def refresh_observation_sources():
     result = sync_observation_sources()
