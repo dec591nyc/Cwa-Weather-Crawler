@@ -7,12 +7,8 @@ from config import settings
 
 SCHEMA_MIGRATIONS = {
     "weather_observations": {
-        "rainfall_10min": "REAL",
         "rainfall_1h": "REAL",
-        "rainfall_3h": "REAL",
-        "rainfall_6h": "REAL",
-        "rainfall_12h": "REAL",
-        "rainfall_24h": "REAL",
+        "rainfall_today": "REAL",
         "visibility_km": "REAL",
         "visibility_description": "TEXT",
     },
@@ -35,7 +31,9 @@ SCHEMA_MIGRATIONS = {
 
 
 def _column_exists(conn: sqlite3.Connection, table_name: str, column_name: str) -> bool:
-    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    if table_name not in SCHEMA_MIGRATIONS:
+        return True
+    rows = conn.execute("PRAGMA table_info(" + table_name + ")").fetchall()
     return any(row[1] == column_name for row in rows)
 
 
@@ -44,7 +42,7 @@ def _apply_schema_migrations(conn: sqlite3.Connection) -> None:
         for column_name, column_type in columns.items():
             if _column_exists(conn, table_name, column_name):
                 continue
-            conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+            conn.execute("ALTER TABLE " + table_name + " ADD COLUMN " + column_name + " " + column_type)
 
 
 def init_db() -> None:
@@ -56,4 +54,4 @@ def init_db() -> None:
 
 if __name__ == "__main__":
     init_db()
-    print(f"Initialized database: {settings.database_path}")
+    print("Initialized database: " + settings.database_path)
