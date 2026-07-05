@@ -13,3 +13,11 @@ def latest_pm25(
     limit: int = Query(1000, ge=1, le=5000),
 ):
     return latest_pm25_observations(county, limit)
+
+
+@router.get("/air-quality/latest")
+def latest_air_quality(
+    county: str | None = None,
+    limit: int = Query(1000, ge=1, le=5000),
+):
+    return latest_pm25_observations(county, limit)
