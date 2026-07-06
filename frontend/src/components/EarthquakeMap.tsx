@@ -96,8 +96,10 @@ export const EarthquakeMap: React.FC<EarthquakeMapProps> = ({ earthquakes, selec
   const flyToSelected = () => {
     const map = mapRef.current;
     const selectedEarthquake = getSelectedEarthquake(earthquakesRef.current, selectedKeyRef.current);
-    if (!map || !selectedEarthquake?.epicenter_lon || !selectedEarthquake?.epicenter_lat) return;
-    map.flyTo({ center: [selectedEarthquake.epicenter_lon, selectedEarthquake.epicenter_lat], zoom: Math.max(map.getZoom(), 8.2), essential: true });
+    const lon = selectedEarthquake?.epicenter_lon;
+    const lat = selectedEarthquake?.epicenter_lat;
+    if (!map || lon === null || lon === undefined || lat === null || lat === undefined) return;
+    map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 8.2), essential: true });
   };
 
   const ensureLayers = () => {
@@ -106,10 +108,10 @@ export const EarthquakeMap: React.FC<EarthquakeMapProps> = ({ earthquakes, selec
     if (!map.getSource("earthquake-epicenters")) map.addSource("earthquake-epicenters", { type: "geojson", data: buildEpicenterFeatures(earthquakesRef.current, selectedKeyRef.current) });
     if (!map.getSource("earthquake-stations")) map.addSource("earthquake-stations", { type: "geojson", data: buildStationFeatures(getSelectedEarthquake(earthquakesRef.current, selectedKeyRef.current)?.stations || []) });
     if (!map.getLayer("earthquake-stations-layer")) {
-      map.addLayer({ id: "earthquake-stations-layer", type: "circle", source: "earthquake-stations", paint: { "circle-radius": 5, "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": 1, "circle-opacity": 0.82 } });
+      map.addLayer({ id: "earthquake-stations-layer", type: "circle", source: "earthquake-stations", paint: { "circle-radius": 5, "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": 1, "circle-opacity": 0.82 } } as any);
     }
     if (!map.getLayer("earthquake-epicenters-layer")) {
-      map.addLayer({ id: "earthquake-epicenters-layer", type: "circle", source: "earthquake-epicenters", paint: { "circle-radius": ["case", ["==", ["get", "selected"], true], 20, ["interpolate", ["linear"], ["to-number", ["get", "magnitude_value"]], 3, 8, 5, 13, 6, 18], "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": ["case", ["==", ["get", "selected"], true], 4, 2], "circle-opacity": 0.92 } });
+      map.addLayer({ id: "earthquake-epicenters-layer", type: "circle", source: "earthquake-epicenters", paint: { "circle-radius": ["case", ["==", ["get", "selected"], true], 20, ["interpolate", ["linear"], ["to-number", ["get", "magnitude_value"]], 3, 8, 5, 13, 6, 18], "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": ["case", ["==", ["get", "selected"], true], 4, 2], "circle-opacity": 0.92 } } as any);
     }
     updateData();
   };
