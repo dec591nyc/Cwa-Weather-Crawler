@@ -21,7 +21,6 @@ function formatMetric(value: number | null | undefined, suffix = ""): string {
 
 export const EarthquakeSummaryPanel: React.FC<EarthquakeSummaryPanelProps> = ({ earthquakes, minMagnitude = 0, totalCount }) => {
   const latest = earthquakes[0];
-  const strongest = [...earthquakes].sort((a, b) => (b.magnitude_value || 0) - (a.magnitude_value || 0))[0];
   const deepest = [...earthquakes].sort((a, b) => (b.depth_km || 0) - (a.depth_km || 0))[0];
   const happenedCount = totalCount ?? earthquakes.length;
   return (
