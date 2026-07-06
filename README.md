@@ -14,7 +14,7 @@
 
 專案透過 OpenData API 呼叫取得觀測資料，經由後端清洗、正規化與儲存後，再以前端 GeoMap 介面呈現測站分布、觀測指標、縣市差異與地震事件。
 
-🔗 [**Live Demo**](https://cwa-weather-crawler.vercel.app/)
+🔗 [**Live Demo**](https://cwa-geo-map-monitor-amber.vercel.app/)
 
 ---
 
