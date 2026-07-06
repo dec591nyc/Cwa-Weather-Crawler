@@ -192,8 +192,6 @@ curl http://127.0.0.1:8000/api/earthquakes/latest
 | `/api/refresh/observations` | POST | 透過 sync manager 更新主要觀測資料來源 |
 | `/api/refresh/all` | POST | 更新全部已接入觀測資料來源 |
 
-Legacy note：舊的 `/api/temperature/geojson` 已移除，現在統一使用 `/api/weather/stations.geojson`。
-
 ---
 
 ## 🧭 未來發展
@@ -211,5 +209,3 @@ Legacy note：舊的 `/api/temperature/geojson` 已移除，現在統一使用 `
 - 空氣品質呈現應優先對齊具體污染物測項，讓使用者能直接比較 PM2.5、PM10、O3、CO、SO2、NO2 等來源值。
 - 政府開放資料常見缺值與 sentinel value，例如 `-99`、`-999`，需要在後端清理後再交給前端呈現。
 - 環境觀測資料應明確區分 `observed_at` 與 `fetched_at`，避免使用者誤解資料新鮮度。
-- OSM 與 Windy 模式應共用相同的指標、篩選條件、門檻與圖例，降低使用者操作成本。
-- README、`.env.example` 與部署文件需要和實際功能同步，尤其是前後端分離時的環境變數設定與 API 使用邊界。
