@@ -121,7 +121,7 @@ export interface EarthquakeEvent {
   stations?: EarthquakeStation[];
 }
 
-export interface EarthquakeResponse { count: number; earthquakes: EarthquakeEvent[]; }
+export interface EarthquakeResponse { count: number; days?: number; earthquakes: EarthquakeEvent[]; }
 export interface NumericStats { min: number | null; max: number | null; avg: number | null; count: number; }
 
 export interface CountySummary {

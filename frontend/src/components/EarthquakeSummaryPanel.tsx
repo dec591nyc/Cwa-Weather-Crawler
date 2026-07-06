@@ -1,7 +1,11 @@
 import React from "react";
 import type { EarthquakeEvent } from "../types/weather.ts";
 
-interface EarthquakeSummaryPanelProps { earthquakes: EarthquakeEvent[]; minMagnitude?: number; }
+interface EarthquakeSummaryPanelProps {
+  earthquakes: EarthquakeEvent[];
+  minMagnitude?: number;
+  totalCount?: number;
+}
 
 function formatDateTime(value: string | null): string {
   if (!value) return "-";
@@ -15,10 +19,11 @@ function formatMetric(value: number | null | undefined, suffix = ""): string {
   return `${value}${suffix}`;
 }
 
-export const EarthquakeSummaryPanel: React.FC<EarthquakeSummaryPanelProps> = ({ earthquakes, minMagnitude = 0 }) => {
+export const EarthquakeSummaryPanel: React.FC<EarthquakeSummaryPanelProps> = ({ earthquakes, minMagnitude = 0, totalCount }) => {
   const latest = earthquakes[0];
   const strongest = [...earthquakes].sort((a, b) => (b.magnitude_value || 0) - (a.magnitude_value || 0))[0];
   const deepest = [...earthquakes].sort((a, b) => (b.depth_km || 0) - (a.depth_km || 0))[0];
+  const happenedCount = totalCount ?? earthquakes.length;
   return (
     <section className="insight-dock" aria-label="地震事件統計">
       <div className="insight-overview" aria-live="polite">
@@ -29,19 +34,19 @@ export const EarthquakeSummaryPanel: React.FC<EarthquakeSummaryPanelProps> = ({ 
           </div>
         </div>
         <div className="summary-metrics">
-          <div><span>符合篩選事件</span><strong>{earthquakes.length}</strong><small className="summary-metric-note">規模 ≥ M{minMagnitude.toFixed(1)}</small></div>
+          <div><span>近七天事件</span><strong>{happenedCount}</strong><small className="summary-metric-note">API 回傳 count</small></div>
+          <div><span>符合篩選</span><strong>{earthquakes.length}</strong><small className="summary-metric-note">規模 ≥ M{minMagnitude.toFixed(1)}</small></div>
           <div><span>最新規模</span><strong>{formatMetric(latest?.magnitude_value)}</strong><small className="summary-metric-note">{latest?.location || "尚無資料"}</small></div>
-          <div><span>最大規模</span><strong>{formatMetric(strongest?.magnitude_value)}</strong><small className="summary-metric-note">{strongest?.location || "尚無資料"}</small></div>
           <div><span>最大深度</span><strong>{formatMetric(deepest?.depth_km, " km")}</strong><small className="summary-metric-note">{deepest?.location || "尚無資料"}</small></div>
         </div>
         <div className="summary-footnote">
           <span>震央點依規模大小呈現</span>
-          <span>震度測站顯示於地震 popup 與最近事件清單</span>
+          <span>最近事件清單保留原 Top 5 版型</span>
           <span>時間範圍固定為近七天</span>
         </div>
       </div>
       <div className="ranking-block metric-ranking-block">
-        <div className="insight-block-heading"><h3>最近事件</h3></div>
+        <div className="insight-block-heading"><h3>最近事件 Top 5</h3></div>
         <ol className="ranking-list station-ranking-list">
           {earthquakes.slice(0, 5).map((event, index) => (
             <li key={`${event.source_dataset}-${event.earthquake_key}`}>
