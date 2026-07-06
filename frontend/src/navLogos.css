@@ -1,0 +1,71 @@
+.nav-btn {
+  gap: 0.42rem;
+}
+
+.nav-logo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  background: #ffffff;
+}
+
+.nav-logo-osm {
+  background:
+    linear-gradient(90deg, rgba(22, 163, 74, 0.18) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(22, 163, 74, 0.18) 1px, transparent 1px),
+    linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+  background-size: 7px 7px, 7px 7px, 100% 100%;
+}
+
+.nav-logo-osm > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.nav-logo-windy {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 55%, #7c3aed 100%);
+}
+
+.nav-logo-windy > span,
+.nav-logo-windy::before,
+.nav-logo-windy::after {
+  position: absolute;
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.nav-logo-windy > span {
+  top: 8px;
+  left: 4px;
+}
+
+.nav-logo-windy::before {
+  top: 13px;
+  left: 7px;
+  width: 15px;
+}
+
+.nav-logo-windy::after {
+  top: 18px;
+  left: 5px;
+  width: 11px;
+}
+
+.nav-btn.active .nav-logo {
+  border-color: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
