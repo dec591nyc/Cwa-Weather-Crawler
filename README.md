@@ -184,6 +184,3 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 VITE_WINDY_API_KEY=your_windy_key
 ```
 
-## 架構圖處理
-
-原本「系統架構與資訊流」圖表可讀性不足，文字過小且不易放大。README 先移除該架構圖，改用文字描述系統設計。若後續要恢復，建議改成獨立頁面或 SVG/Excalidraw 檔案，不要塞在小尺寸區塊中。
