@@ -34,38 +34,34 @@
 }
 
 .nav-logo-windy {
-  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 55%, #7c3aed 100%);
+  width: 86px;
+  height: 28px;
+  flex: 0 0 86px;
+  border-radius: 8px;
+  border-color: rgba(185, 28, 28, 0.32);
+  background-color: #b71f2d;
+  background-image: url("https://www.windy.com/img/logo201802/logo-text-windycom-white.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 74px auto;
 }
 
 .nav-logo-windy > span,
 .nav-logo-windy::before,
 .nav-logo-windy::after {
-  position: absolute;
-  content: "";
-  width: 18px;
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
+  display: none;
+  content: none;
 }
 
-.nav-logo-windy > span {
-  top: 8px;
-  left: 4px;
-}
-
-.nav-logo-windy::before {
-  top: 13px;
-  left: 7px;
-  width: 15px;
-}
-
-.nav-logo-windy::after {
-  top: 18px;
-  left: 5px;
-  width: 11px;
+.nav-logo-windy + span {
+  display: none;
 }
 
 .nav-btn.active .nav-logo {
   border-color: rgba(255, 255, 255, 0.72);
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+
+.nav-btn.active .nav-logo-windy {
+  box-shadow: 0 0 0 2px rgba(183, 31, 45, 0.24);
 }
