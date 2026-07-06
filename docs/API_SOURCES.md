@@ -11,10 +11,9 @@
 | CWA | `O-A0002-001` | 雨量站觀測：10 分鐘降雨量、過去 24 小時雨量 | 雨量站經緯度 | Active |
 | CWA | `E-A0015-001` | 地震報告：震央、規模、深度、最大震度、震度測站 | 震央與震度測站經緯度 | Active |
 | CWA | `E-A0016-001` | 小區域有感地震：震央與震度測站 | 震央與震度測站經緯度 | Active |
-| CWA | `F-D0047-093` | 鄉鎮天氣預報 | 行政區或地理編碼位置 | Active |
 | MOENV | `aqx_p_432` | 空氣品質監測：PM2.5、PM10、O3 8hr、CO 8hr、SO2、NO2 | 空品測站經緯度 | Active |
 
-OpenStreetMap 與 Windy 屬於地圖服務，不列入 API source stack 的數據來源分組。
+OpenStreetMap 與 Windy 屬於地圖服務，不列入 API source stack 的數據來源分組。鄉鎮天氣預報等未使用 API 不列入 active source。
 
 ## 同步狀態
 
@@ -29,15 +28,7 @@ Header 只保留底圖模式：`OSM` 與 `Windy`。地震事件已移到 LayerCo
 | 氣象 / 雨量 / 空品 | 顯示測站型連續觀測指標。 |
 | 地震事件 | 顯示近七天地震震央、規模、深度、最大震度與震度測站。 |
 
-地震圖層具備最小規模 slider，可用於篩選近七天事件。
-
-## 不接入點位的資料來源
-
-| Dataset | 判斷 | 原因 |
-| --- | --- | --- |
-| `A-B0062-001` | 不做點位 | 檢查樣本未發現經緯度欄位，適合未來做查詢卡片而非 marker。 |
-| `W-C0033-001` | 不做點位 | 檢查樣本未發現經緯度欄位，若要使用應做縣市或區域 polygon highlight。 |
-| `W-C0033-006` | 不接入 | API 樣本檢查回傳 404。 |
+地震圖層具備最小規模 slider，可用於篩選近七天事件；也可切換單一事件或全部符合篩選的事件。
 
 ## 雨量欄位
 
@@ -57,7 +48,7 @@ Header 只保留底圖模式：`OSM` 與 `Windy`。地震事件已移到 LayerCo
 | 震央點 | `EarthquakeInfo.Epicenter.EpicenterLatitude` / `EpicenterLongitude` |
 | 震度測站 | `Intensity.ShakingArea[].EqStation[].StationLatitude` / `StationLongitude` |
 
-前端資料圖層切換到「地震事件」時，OSM 底圖顯示震央與震度測站，Windy 底圖顯示震央 marker。地震圖層以規模作為主要篩選指標，深度與最大震度作為事件摘要與 popup 資訊。
+前端資料圖層切換到「地震事件」時，OSM 底圖顯示震央與震度測站，Windy 底圖顯示震央 marker。地震圖層以規模作為主要篩選指標，深度與最大震度作為事件摘要與 popup 資訊。點擊最近事件 Top 5 可定位震央。
 
 ## 空氣污染物指標
 

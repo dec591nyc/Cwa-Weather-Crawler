@@ -1,6 +1,6 @@
 import React from "react";
 import { metricConfigs, metricOrder } from "../lib/colorScale.ts";
-import type { DataLayer, ObservationMetric } from "../types/weather.ts";
+import type { DataLayer, EarthquakeDisplayMode, ObservationMetric } from "../types/weather.ts";
 
 interface LayerControlProps {
   dataLayer: DataLayer;
@@ -11,6 +11,8 @@ interface LayerControlProps {
   onMetricMinChange: (value: number) => void;
   earthquakeMinMagnitude: number;
   onEarthquakeMinMagnitudeChange: (value: number) => void;
+  earthquakeDisplayMode: EarthquakeDisplayMode;
+  onEarthquakeDisplayModeChange: (mode: EarthquakeDisplayMode) => void;
 }
 
 const layerOptions: Array<{ id: DataLayer; label: string; code: string; description: string }> = [
@@ -18,18 +20,8 @@ const layerOptions: Array<{ id: DataLayer; label: string; code: string; descript
   { id: "earthquakes", label: "地震事件", code: "EQ", description: "顯示近七天地震震央與震度測站。" },
 ];
 
-const compactTabStyle: React.CSSProperties = {
-  flex: "0 0 auto",
-  whiteSpace: "nowrap",
-  padding: "0.32rem 0.42rem",
-  gap: "0.28rem",
-};
-
-const compactCodeStyle: React.CSSProperties = {
-  minWidth: 28,
-  height: 20,
-  fontSize: "0.62rem",
-};
+const compactTabStyle: React.CSSProperties = { flex: "0 0 auto", whiteSpace: "nowrap", padding: "0.32rem 0.42rem", gap: "0.28rem" };
+const compactCodeStyle: React.CSSProperties = { minWidth: 28, height: 20, fontSize: "0.62rem" };
 
 export const LayerControl: React.FC<LayerControlProps> = ({
   dataLayer,
@@ -40,18 +32,12 @@ export const LayerControl: React.FC<LayerControlProps> = ({
   onMetricMinChange,
   earthquakeMinMagnitude,
   onEarthquakeMinMagnitudeChange,
+  earthquakeDisplayMode,
+  onEarthquakeDisplayModeChange,
 }) => {
   const activeConfig = metricConfigs[activeMetric];
   return (
-    <section
-      className="control-dock"
-      aria-label="地圖控制"
-      style={{
-        gridTemplateColumns: "minmax(210px, 300px) minmax(0, 1fr) minmax(230px, 290px)",
-        gap: "0.72rem",
-        justifyContent: "stretch",
-      }}
-    >
+    <section className="control-dock" aria-label="地圖控制" style={{ gridTemplateColumns: "minmax(210px, 300px) minmax(0, 1fr) minmax(230px, 290px)", gap: "0.72rem", justifyContent: "stretch" }}>
       <div className="control-group control-group-metric" style={{ maxWidth: "none" }}>
         <div className="control-label">資料圖層</div>
         <div className="metric-tabs" role="tablist" aria-label="資料圖層" style={{ flexWrap: "nowrap", overflowX: "auto", width: "100%", gap: "0.42rem" }}>
@@ -70,6 +56,8 @@ export const LayerControl: React.FC<LayerControlProps> = ({
             <button type="button" className="metric-tab active" style={compactTabStyle} title="地震事件使用規模、深度與最大震度描述，不使用氣象色階。"><span className="metric-tab-code" style={compactCodeStyle}>MAG</span><span>規模</span></button>
             <button type="button" className="metric-tab" style={compactTabStyle} title="震源深度顯示在地震 popup 與摘要卡片。"><span className="metric-tab-code" style={compactCodeStyle}>DEP</span><span>深度</span></button>
             <button type="button" className="metric-tab" style={compactTabStyle} title="最大震度與震度測站顯示在地震摘要與 popup。"><span className="metric-tab-code" style={compactCodeStyle}>INT</span><span>最大震度</span></button>
+            <button type="button" className={`metric-tab ${earthquakeDisplayMode === "selected" ? "active" : ""}`} style={compactTabStyle} onClick={() => onEarthquakeDisplayModeChange("selected")} title="只顯示目前選取或最新的地震事件。"><span className="metric-tab-code" style={compactCodeStyle}>ONE</span><span>單一事件</span></button>
+            <button type="button" className={`metric-tab ${earthquakeDisplayMode === "all" ? "active" : ""}`} style={compactTabStyle} onClick={() => onEarthquakeDisplayModeChange("all")} title="顯示所有符合篩選的近七天地震事件。"><span className="metric-tab-code" style={compactCodeStyle}>ALL</span><span>全部事件</span></button>
           </div>
         ) : (
           <div className="metric-tabs" role="tablist" aria-label="觀測指標" style={{ flexWrap: "nowrap", overflowX: "auto", width: "100%", gap: "0.3rem" }}>
@@ -88,10 +76,7 @@ export const LayerControl: React.FC<LayerControlProps> = ({
       <div className="control-group control-group-slider" style={{ maxWidth: 290 }}>
         {dataLayer === "earthquakes" ? (
           <>
-            <div className="slider-heading">
-              <label className="control-label" htmlFor="earthquake-min-magnitude" title="只顯示規模大於或等於門檻的近七天地震事件。">地震規模篩選</label>
-              <span className="slider-value">{`>= M${earthquakeMinMagnitude.toFixed(1)}`}</span>
-            </div>
+            <div className="slider-heading"><label className="control-label" htmlFor="earthquake-min-magnitude" title="只顯示規模大於或等於門檻的近七天地震事件。">地震規模篩選</label><span className="slider-value">{`>= M${earthquakeMinMagnitude.toFixed(1)}`}</span></div>
             <input id="earthquake-min-magnitude" type="range" min={0} max={7} step={0.1} value={earthquakeMinMagnitude} onChange={(e) => onEarthquakeMinMagnitudeChange(Number(e.target.value))} className="range-slider" />
           </>
         ) : (

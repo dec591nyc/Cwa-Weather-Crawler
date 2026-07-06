@@ -2,7 +2,11 @@ import React, { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import type { EarthquakeEvent, EarthquakeStation } from "../types/weather.ts";
 
-interface EarthquakeMapProps { earthquakes: EarthquakeEvent[]; }
+interface EarthquakeMapProps {
+  earthquakes: EarthquakeEvent[];
+  selectedEarthquakeKey: string | null;
+  onSelectEarthquake?: (earthquakeKey: string) => void;
+}
 
 const osmRasterStyle: maplibregl.StyleSpecification = {
   version: 8,
@@ -32,7 +36,11 @@ function stationColor(intensity: string | null | undefined): string {
   return "#94a3b8";
 }
 
-function buildEpicenterFeatures(earthquakes: EarthquakeEvent[]): GeoJSON.FeatureCollection {
+function getSelectedEarthquake(earthquakes: EarthquakeEvent[], selectedEarthquakeKey: string | null): EarthquakeEvent | null {
+  return earthquakes.find((event) => event.earthquake_key === selectedEarthquakeKey) || earthquakes[0] || null;
+}
+
+function buildEpicenterFeatures(earthquakes: EarthquakeEvent[], selectedEarthquakeKey: string | null): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: earthquakes
@@ -40,7 +48,7 @@ function buildEpicenterFeatures(earthquakes: EarthquakeEvent[]): GeoJSON.Feature
       .map((event) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [event.epicenter_lon as number, event.epicenter_lat as number] },
-        properties: { ...event, color: epicenterColor(event.magnitude_value) },
+        properties: { ...event, color: epicenterColor(event.magnitude_value), selected: event.earthquake_key === selectedEarthquakeKey },
       })),
   };
 }
@@ -67,31 +75,41 @@ function stationPopup(props: Record<string, any>): string {
   return `<div class="popup-container"><div class="popup-header"><div class="popup-station-name">${props.station_name || "震度測站"}</div><div class="popup-location-sub">${props.county || props.area_name || ""}</div></div><div class="popup-metric-large">震度 ${props.station_intensity || "-"}</div><div class="popup-grid"><span class="popup-label">距離</span><span class="popup-value">${props.distance_km ?? "-"} km</span><span class="popup-label">PGA</span><span class="popup-value">${props.pga ?? "-"}</span><span class="popup-label">PGV</span><span class="popup-value">${props.pgv ?? "-"}</span></div></div>`;
 }
 
-export const EarthquakeMap: React.FC<EarthquakeMapProps> = ({ earthquakes }) => {
+export const EarthquakeMap: React.FC<EarthquakeMapProps> = ({ earthquakes, selectedEarthquakeKey, onSelectEarthquake }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const earthquakesRef = useRef<EarthquakeEvent[]>(earthquakes);
+  const selectedKeyRef = useRef<string | null>(selectedEarthquakeKey);
   earthquakesRef.current = earthquakes;
+  selectedKeyRef.current = selectedEarthquakeKey;
 
   const updateData = () => {
     const map = mapRef.current;
     if (!map) return;
+    const selectedEarthquake = getSelectedEarthquake(earthquakesRef.current, selectedKeyRef.current);
     const epicenterSource = map.getSource("earthquake-epicenters") as maplibregl.GeoJSONSource | undefined;
     const stationSource = map.getSource("earthquake-stations") as maplibregl.GeoJSONSource | undefined;
-    if (epicenterSource) epicenterSource.setData(buildEpicenterFeatures(earthquakesRef.current));
-    if (stationSource) stationSource.setData(buildStationFeatures(earthquakesRef.current[0]?.stations || []));
+    if (epicenterSource) epicenterSource.setData(buildEpicenterFeatures(earthquakesRef.current, selectedEarthquake?.earthquake_key || null));
+    if (stationSource) stationSource.setData(buildStationFeatures(selectedEarthquake?.stations || []));
+  };
+
+  const flyToSelected = () => {
+    const map = mapRef.current;
+    const selectedEarthquake = getSelectedEarthquake(earthquakesRef.current, selectedKeyRef.current);
+    if (!map || !selectedEarthquake?.epicenter_lon || !selectedEarthquake?.epicenter_lat) return;
+    map.flyTo({ center: [selectedEarthquake.epicenter_lon, selectedEarthquake.epicenter_lat], zoom: Math.max(map.getZoom(), 8.2), essential: true });
   };
 
   const ensureLayers = () => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
-    if (!map.getSource("earthquake-epicenters")) map.addSource("earthquake-epicenters", { type: "geojson", data: buildEpicenterFeatures(earthquakesRef.current) });
-    if (!map.getSource("earthquake-stations")) map.addSource("earthquake-stations", { type: "geojson", data: buildStationFeatures(earthquakesRef.current[0]?.stations || []) });
+    if (!map.getSource("earthquake-epicenters")) map.addSource("earthquake-epicenters", { type: "geojson", data: buildEpicenterFeatures(earthquakesRef.current, selectedKeyRef.current) });
+    if (!map.getSource("earthquake-stations")) map.addSource("earthquake-stations", { type: "geojson", data: buildStationFeatures(getSelectedEarthquake(earthquakesRef.current, selectedKeyRef.current)?.stations || []) });
     if (!map.getLayer("earthquake-stations-layer")) {
       map.addLayer({ id: "earthquake-stations-layer", type: "circle", source: "earthquake-stations", paint: { "circle-radius": 5, "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": 1, "circle-opacity": 0.82 } });
     }
     if (!map.getLayer("earthquake-epicenters-layer")) {
-      map.addLayer({ id: "earthquake-epicenters-layer", type: "circle", source: "earthquake-epicenters", paint: { "circle-radius": ["interpolate", ["linear"], ["to-number", ["get", "magnitude_value"]], 3, 8, 5, 13, 6, 18], "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": 2, "circle-opacity": 0.92 } });
+      map.addLayer({ id: "earthquake-epicenters-layer", type: "circle", source: "earthquake-epicenters", paint: { "circle-radius": ["case", ["==", ["get", "selected"], true], 20, ["interpolate", ["linear"], ["to-number", ["get", "magnitude_value"]], 3, 8, 5, 13, 6, 18], "circle-color": ["get", "color"], "circle-stroke-color": "#ffffff", "circle-stroke-width": ["case", ["==", ["get", "selected"], true], 4, 2], "circle-opacity": 0.92 } });
     }
     updateData();
   };
@@ -105,8 +123,11 @@ export const EarthquakeMap: React.FC<EarthquakeMapProps> = ({ earthquakes }) => 
     map.on("style.load", ensureLayers);
     map.on("click", "earthquake-epicenters-layer", (event) => {
       if (!event.features || event.features.length === 0) return;
-      const geometry = event.features[0].geometry as GeoJSON.Point;
-      new maplibregl.Popup({ className: "custom-mapbox-popup" }).setLngLat(geometry.coordinates as [number, number]).setHTML(eventPopup(event.features[0].properties || {})).addTo(map);
+      const feature = event.features[0];
+      const geometry = feature.geometry as GeoJSON.Point;
+      const props = feature.properties || {};
+      if (typeof props.earthquake_key === "string") onSelectEarthquake?.(props.earthquake_key);
+      new maplibregl.Popup({ className: "custom-mapbox-popup" }).setLngLat(geometry.coordinates as [number, number]).setHTML(eventPopup(props)).addTo(map);
     });
     map.on("click", "earthquake-stations-layer", (event) => {
       if (!event.features || event.features.length === 0) return;
@@ -118,6 +139,7 @@ export const EarthquakeMap: React.FC<EarthquakeMapProps> = ({ earthquakes }) => 
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
-  useEffect(() => { ensureLayers(); updateData(); }, [earthquakes]);
+  useEffect(() => { ensureLayers(); updateData(); }, [earthquakes, selectedEarthquakeKey]);
+  useEffect(() => { updateData(); flyToSelected(); }, [selectedEarthquakeKey]);
   return <div className="map-pane"><div ref={mapContainerRef} id="earthquake-map" style={{ width: "100%", height: "100%" }} /></div>;
 };

@@ -26,6 +26,7 @@ export interface ObservationProperties {
 
 export type ObservationMetric = "temperature" | "rainfall_10min" | "rainfall_24h" | "humidity" | "wind_speed" | "visibility_km" | "pm25" | "pm10" | "o3_8hr" | "co_8hr" | "so2" | "no2";
 export type DataLayer = "observations" | "earthquakes";
+export type EarthquakeDisplayMode = "selected" | "all";
 export type SyncSourceState = "success" | "failed" | "unknown";
 export type SyncOverallStatus = "ok" | "warning" | "error";
 
